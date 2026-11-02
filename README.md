@@ -455,29 +455,33 @@ Die HAFAS-Antwort wird defensiv geparst: Fehlende Felder, abweichende Plattform-
 
 ## GitHub-Veröffentlichung
 
-Das Repository ist so vorbereitet, dass es direkt als HACS-Custom-Repository funktioniert. Vor dem Push:
+Das Repository ist veröffentlicht:
 
-1. Die [`manifest.json`](custom_components/hafas_bus_monitor/manifest.json) ist bereits auf `@TechnoLau` und `https://github.com/TechnoLau/hafas-bus-monitor` konfiguriert.
-2. In [`const.py`](custom_components/hafas_bus_monitor/const.py) den User-Agent-Kontakt in `HAFAS_USER_AGENT` anpassen (hilfreich für den API-Betreiber).
-3. Optional: `LICENSE`-Copyright anpassen.
-4. Auf GitHub eine kurze Repository-Beschreibung und Topics setzen, z. B.
-   `home-assistant`, `hacs`, `hafas`, `nahsh`, `kiel`, `bus`.
+**https://github.com/TechnoLau/hafas-bus-monitor**
+
+Die [`manifest.json`](custom_components/hafas_bus_monitor/manifest.json) ist auf `@TechnoLau` und die Repository-URL konfiguriert. Der User-Agent in [`const.py`](custom_components/hafas_bus_monitor/const.py) enthält ebenfalls den Projektlink.
+
+### In HACS installieren
+
+1. **HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories**
+2. URL `https://github.com/TechnoLau/hafas-bus-monitor` eintragen.
+3. Kategorie **Integration** wählen.
+4. Installieren und Home Assistant neu starten.
+
+### Updates veröffentlichen
 
 ```bash
 cd hafas-bus-monitor
 
-git init -b main
 git add .
-git commit -m "Initial HAFAS Bus Monitor integration"
-git remote add origin https://github.com/TechnoLau/hafas-bus-monitor.git
-git push -u origin main
+git commit -m "Beschreibung der Änderung"
+git push
 
-# HACS-Release (optional)
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
-Danach in HACS als **Custom Repository** (Kategorie **Integration**) hinzufügen.
+Die GitHub-Actions-Workflows **hassfest** und **HACS Validation** prüfen Pushes und Pull Requests automatisch.
 
 ### Repository-Struktur
 
