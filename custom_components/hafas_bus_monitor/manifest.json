@@ -10,6 +10,6 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/TechnoLau/hafas-bus-monitor/issues",
   "requirements": [],
-  "version": "1.0.0",
-  "single_config_entry": true
+  "single_config_entry": true,
+  "version": "1.0.0"
 }
