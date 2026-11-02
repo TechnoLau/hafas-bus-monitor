@@ -1,0 +1,5 @@
+refresh:
+  name: Refresh departures
+  description: >-
+    Fetch fresh HAFAS departure data for all configured stops immediately.
+  fields: {}

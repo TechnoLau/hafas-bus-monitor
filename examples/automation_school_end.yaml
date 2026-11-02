@@ -1,0 +1,46 @@
+alias: Schulschluss – schnellster Bus
+description: >-
+  Prüft nach Schulende, ob die Hospitalstraße oder die Kunsthalle
+  die schnellere Busverbindung bietet, und sendet eine Push-Nachricht.
+trigger:
+  - platform: time
+    at: "13:15:00"
+condition:
+  - condition: time
+    weekday:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+  # Optional: nur an Schultagen
+  # - condition: state
+  #   entity_id: binary_sensor.schultag
+  #   state: "on"
+  - condition: template
+    value_template: >-
+      {{ states('sensor.hafas_schnellste_verbindung')
+         not in ['unknown', 'unavailable', 'Keine Verbindung'] }}
+action:
+  - service: hafas_bus_monitor.refresh
+  - delay: "00:00:03"
+  - variables:
+      best: "{{ state_attr('sensor.hafas_schnellste_verbindung', 'best') }}"
+      message: >-
+        {% if best %}
+        Nimm Linie {{ best.line }} ab {{ best.stop_short }}.
+        Abfahrt {{ best.departure_time_local }} Uhr, noch {{ best.minutes_until }} Minuten.
+        Fußweg {{ best.walk_minutes }} Minuten – losgehen in {{ best.leave_in_minutes }} Minuten.
+        Ziel: {{ best.destination }}.
+        {% if best.delay > 0 %}({{ best.delay }} Minuten Verspätung){% endif %}
+        {% else %}
+        Keine erreichbare Verbindung im Vorschau-Fenster.
+        {% endif %}
+  - service: notify.mobile_app_schulkind
+    data:
+      title: "Schnellster Bus"
+      message: "{{ message }}"
+      data:
+        tag: hafas_school_bus
+        channel: Schule
+mode: single

@@ -1,0 +1,139 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HAFAS Bus Monitor",
+        "description": "Configure the first stop. Enter the city and a stop search term (for example \"Kiel\" and \"Hospitalstraße\"). Preferred lines are comma-separated; leave empty to show all lines. The walking time is used by the fastest-connection sensor.",
+        "data": {
+          "city": "City",
+          "stop_query": "Stop (search term)",
+          "lines": "Preferred lines (comma-separated, empty = all)",
+          "destination_filter": "Destination filter (optional)",
+          "walking_minutes": "Walking time to this stop (minutes)",
+          "scan_minutes": "Look-ahead window (minutes)",
+          "update_interval": "Update interval (seconds)",
+          "routing_enabled": "Create fastest-connection sensor"
+        }
+      },
+      "select_stop": {
+        "title": "Select stop",
+        "description": "{count} possible stops found for \"{query}\". Select the correct stop.",
+        "data": {
+          "stop": "Stop"
+        }
+      },
+      "add_stop": {
+        "title": "Add another stop?",
+        "description": "{count} stop(s) configured: {stops}. Add another stop to compare walking times for the fastest connection.",
+        "data": {
+          "add_another": "Add another stop"
+        }
+      },
+      "stop": {
+        "title": "Add stop",
+        "description": "Enter the city, search term and line filter for the additional stop.",
+        "data": {
+          "city": "City",
+          "stop_query": "Stop (search term)",
+          "lines": "Preferred lines (comma-separated, empty = all)",
+          "destination_filter": "Destination filter (optional)",
+          "walking_minutes": "Walking time to this stop (minutes)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The HAFAS/NAH.SH service could not be reached. Check your internet connection and try again.",
+      "no_stops": "No stop was found for this search. Try a shorter or slightly different search term.",
+      "duplicate_stop": "This stop is already configured.",
+      "city_required": "A city is required.",
+      "stop_required": "A stop search term is required.",
+      "invalid_stop": "The selected stop is invalid. Please try again."
+    },
+    "abort": {
+      "already_configured": "This stop is already configured.",
+      "invalid_flow": "The configuration flow is no longer valid. Please start again.",
+      "single_instance_allowed": "Only one HAFAS Bus Monitor entry is allowed. Add or edit stops in the existing entry."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HAFAS Bus Monitor options",
+        "menu_options": {
+          "settings": "Polling and routing settings",
+          "add_stop": "Add stop",
+          "edit_stop": "Edit lines / walking time",
+          "remove_stop": "Remove stop",
+          "save": "Save and reload"
+        }
+      },
+      "settings": {
+        "title": "Polling and routing settings",
+        "description": "The update interval controls how often HAFAS is queried. The look-ahead window controls how far into the future departures are requested.",
+        "data": {
+          "scan_minutes": "Look-ahead window (minutes)",
+          "update_interval": "Update interval (seconds)",
+          "routing_enabled": "Create fastest-connection sensor"
+        }
+      },
+      "add_stop": {
+        "title": "Add stop",
+        "description": "Enter the city and stop search term, then select the correct HAFAS stop.",
+        "data": {
+          "city": "City",
+          "stop_query": "Stop (search term)",
+          "lines": "Preferred lines (comma-separated, empty = all)",
+          "destination_filter": "Destination filter (optional)",
+          "walking_minutes": "Walking time to this stop (minutes)"
+        }
+      },
+      "select_stop": {
+        "title": "Select stop",
+        "description": "{count} possible stops found for \"{query}\". Select the correct stop.",
+        "data": {
+          "stop": "Stop"
+        }
+      },
+      "edit_stop": {
+        "title": "Edit stop",
+        "description": "Select the stop whose line filter or walking time you want to change.",
+        "data": {
+          "stop": "Stop"
+        }
+      },
+      "edit_stop_form": {
+        "title": "Edit {stop}",
+        "description": "Change the line filter or walking time for this stop.",
+        "data": {
+          "lines": "Preferred lines (comma-separated, empty = all)",
+          "destination_filter": "Destination filter (optional)",
+          "walking_minutes": "Walking time to this stop (minutes)"
+        }
+      },
+      "remove_stop": {
+        "title": "Remove stop",
+        "description": "Select the stop to remove. At least one stop must remain.",
+        "data": {
+          "stop": "Stop"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The HAFAS/NAH.SH service could not be reached. Check your internet connection and try again.",
+      "no_stops": "No stop was found for this search. Try a shorter or slightly different search term.",
+      "duplicate_stop": "This stop is already configured.",
+      "city_required": "A city is required.",
+      "stop_required": "A stop search term is required.",
+      "invalid_stop": "The selected stop is invalid. Please try again."
+    },
+    "abort": {
+      "invalid_flow": "The configuration flow is no longer valid. Please start again."
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh departures",
+      "description": "Fetch fresh HAFAS departure data for all configured stops immediately."
+    }
+  }
+}

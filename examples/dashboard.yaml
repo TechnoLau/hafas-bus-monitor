@@ -1,0 +1,42 @@
+title: Busse
+path: busse
+icon: mdi:bus
+cards:
+  - type: markdown
+    title: Schnellster Bus nach der Schule
+    content: |
+      {% set best = state_attr('sensor.hafas_schnellste_verbindung', 'best') %}
+      {% if best %}
+      ## {{ states('sensor.hafas_schnellste_verbindung') }}
+
+      **Ziel:** {{ best.destination }}  
+      **Fußweg:** {{ best.walk_minutes }} Min  
+      **Losgehen in:** {{ best.leave_in_minutes }} Min  
+      **Steig:** {{ best.platform or '–' }}{% if best.delay > 0 %} · +{{ best.delay }} Min{% endif %}
+      {% else %}
+      Keine erreichbare Verbindung im Vorschau-Fenster.
+      {% endif %}
+
+  - type: markdown
+    title: Busse ab Hospitalstraße
+    content: |
+      {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
+      {% if departures %}
+      {% for dep in departures[:6] %}
+      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}{% if dep.cancelled %} · **fällt aus**{% endif %}
+      {% endfor %}
+      {% else %}
+      Keine passenden Abfahrten im Vorschau-Fenster.
+      {% endif %}
+
+  - type: markdown
+    title: Busse ab Kunsthalle
+    content: |
+      {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
+      {% if departures %}
+      {% for dep in departures[:6] %}
+      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}{% if dep.cancelled %} · **fällt aus**{% endif %}
+      {% endfor %}
+      {% else %}
+      Keine passenden Abfahrten im Vorschau-Fenster.
+      {% endif %}
