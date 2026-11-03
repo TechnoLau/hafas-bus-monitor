@@ -23,7 +23,7 @@ Die Integration beantwortet zwei Fragen:
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
 - **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
 - **Optionaler Ferien-Sensor**: bei `on` wird die Abfrage pausiert (`Ferien`)
-- **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry
+- **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry und editierbar
 - **Service** `hafas_bus_monitor.refresh`
 - **Keine externen Python-Abhängigkeiten** (nutzt `aiohttp` aus Home Assistant)
 
@@ -125,7 +125,7 @@ Der Routing-Sensor `sensor.hafas_schnellste_verbindung` vergleicht alle Kacheln.
 
 ### 4. Bearbeiten und Löschen
 
-Jede Kachel ist ein eigener **Config-Subentry** und kann auf der Integrationsseite gelöscht und neu angelegt werden. Die globalen Einstellungen (Intervall, Vorschau, Routing, Ferien-Sensor) erreichst du über **Konfigurieren**.
+Jede Kachel ist ein eigener **Config-Subentry** und kann auf der Integrationsseite direkt bearbeitet oder gelöscht werden. Die globalen Einstellungen (Intervall, Vorschau, Routing, Ferien-Sensor) erreichst du über **Konfigurieren**.
 
 Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es ist **kein YAML in `configuration.yaml`** erforderlich; die YAML-Beispiele hier betreffen nur Dashboard und Automationen.
 
@@ -534,7 +534,7 @@ Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-
 
 - In den nächsten 12 Stunden fährt die Linie nicht oder HAFAS liefert keine Ziele.
 - Der Auswahlschritt wird dann übersprungen; die Linie zeigt alle Ziele.
-- Später die Kachel auf der Integrationsseite bearbeiten oder löschen und neu hinzufügen.
+- Später die Kachel auf der Integrationsseite bearbeiten (Zeilen/Ziele/Fußweg) oder löschen und neu hinzufügen.
 
 ### Falsche Entität / ID
 

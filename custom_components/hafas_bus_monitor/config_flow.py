@@ -52,6 +52,7 @@ from .const import (
     SUBENTRY_TYPE_STOP,
 )
 from .util import (
+    lines_to_text,
     merged_config,
     normalize_lines,
     normalize_string_list,
@@ -238,6 +239,25 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
         self._destinations: dict[str, list[str]] = {}
         self._target_queue: list[str] = []
         self._target_index = 0
+        self._reconfiguring = False
+        self._existing_targets: dict[str, list[str]] = {}
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit an existing stop subentry (lines, targets and walking time)."""
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        self._reconfiguring = True
+        self._city = str(data.get(CONF_STOP_CITY) or DEFAULT_CITY)
+        self._lines = list(data.get(CONF_LINES) or [])
+        self._existing_targets = dict(data.get(CONF_LINE_TARGETS) or {})
+        self._candidate = HafasStop(
+            stop_id=str(data.get(CONF_STOP_ID) or ""),
+            lid=str(data.get(CONF_STOP_LID) or ""),
+            name=str(data.get(CONF_STOP_NAME) or ""),
+        )
+        return await self.async_step_lines()
 
     # ---------------------------------------------------------------- city
     async def async_step_user(
@@ -354,7 +374,10 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
             step_id="lines",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_LINES, default=DEFAULT_LINES): _text_selector(),
+                    vol.Optional(
+                        CONF_LINES,
+                        default=lines_to_text(self._lines) or DEFAULT_LINES,
+                    ): _text_selector(),
                 }
             ),
             errors=errors,
@@ -365,7 +388,9 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
 
     async def _prepare_targets(self) -> None:
         """Discover destinations for the selected lines."""
-        self._line_targets = {line: [] for line in self._lines}
+        self._line_targets = {
+            line: list(self._existing_targets.get(line, [])) for line in self._lines
+        }
         self._destinations = {line: [] for line in self._lines}
         self._target_queue = []
         self._target_index = 0
@@ -410,11 +435,18 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
             self._target_index += 1
             return await self.async_step_targets()
 
+        defaults = [
+            target
+            for target in self._line_targets.get(line, [])
+            if target in {item["value"] for item in options}
+        ]
         return self.async_show_form(
             step_id="targets",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_TARGETS, default=[]): selector.SelectSelector(
+                    vol.Optional(
+                        CONF_TARGETS, default=defaults
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=options,
                             multiple=True,
@@ -439,7 +471,14 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
 
         errors: dict[str, str] = {}
         if user_input is not None:
+            current_subentry_id = (
+                self._get_reconfigure_subentry().subentry_id
+                if self._reconfiguring
+                else None
+            )
             for subentry in self._get_entry().subentries.values():
+                if subentry.subentry_id == current_subentry_id:
+                    continue
                 if (
                     subentry.subentry_type == SUBENTRY_TYPE_STOP
                     and subentry.data.get(CONF_STOP_ID) == self._candidate.stop_id
@@ -459,6 +498,13 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
                         DEFAULT_WALKING_MINUTES,
                     ),
                 }
+                if self._reconfiguring:
+                    return self.async_update_and_abort(
+                        self._get_entry(),
+                        self._get_reconfigure_subentry(),
+                        title=self._candidate.name,
+                        data=data,
+                    )
                 return self.async_create_entry(
                     title=self._candidate.name,
                     data=data,
@@ -470,7 +516,14 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_WALKING_MINUTES, default=DEFAULT_WALKING_MINUTES
+                        CONF_WALKING_MINUTES,
+                        default=int(
+                            self._get_reconfigure_subentry().data.get(
+                                CONF_WALKING_MINUTES, DEFAULT_WALKING_MINUTES
+                            )
+                            if self._reconfiguring
+                            else DEFAULT_WALKING_MINUTES
+                        ),
                     ): _number_selector(
                         MIN_WALKING_MINUTES, MAX_WALKING_MINUTES, "min"
                     ),
