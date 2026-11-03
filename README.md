@@ -669,7 +669,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.1
+git tag v3.3.2
 git push origin v3.0.1
 ```
 

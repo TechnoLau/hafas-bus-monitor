@@ -86,14 +86,6 @@ def _number_selector(minimum: int, maximum: int, unit: str) -> selector.NumberSe
     )
 
 
-def _optional_entity_selector(domains: list[str]) -> vol.Any:
-    """Allow an empty value or an entity from the given domains."""
-    return vol.Any(
-        vol.In([None, ""]),
-        selector.EntitySelector(selector.EntitySelectorConfig(domain=domains)),
-    )
-
-
 def _int_value(value: Any, default: int) -> int:
     """Convert an optional form value to int."""
     try:
@@ -105,6 +97,13 @@ def _int_value(value: Any, default: int) -> int:
 def _stop_label(index: int, stop: HafasStop) -> dict[str, str]:
     """Return a readable SelectSelector option."""
     return {"value": str(index), "label": f"{stop.name} ({stop.stop_id})"}
+
+
+def _optional_entity_key(key: str, value: Any) -> vol.Marker:
+    """Return an optional entity field with the current value suggested."""
+    if value:
+        return vol.Optional(key, description={"suggested_value": value})
+    return vol.Optional(key)
 
 
 def _global_schema(settings: dict[str, Any]) -> vol.Schema:
@@ -123,14 +122,16 @@ def _global_schema(settings: dict[str, Any]) -> vol.Schema:
                 CONF_ROUTING_ENABLED,
                 default=settings.get(CONF_ROUTING_ENABLED, DEFAULT_ROUTING_ENABLED),
             ): selector.BooleanSelector(),
-            vol.Optional(
-                CONF_HOLIDAY_ENTITY,
-                default=settings.get(CONF_HOLIDAY_ENTITY) or "",
-            ): _optional_entity_selector(["binary_sensor", "input_boolean"]),
-            vol.Optional(
-                CONF_DEVICE_TRACKER,
-                default=settings.get(CONF_DEVICE_TRACKER) or "",
-            ): _optional_entity_selector(["device_tracker", "person"]),
+            _optional_entity_key(
+                CONF_HOLIDAY_ENTITY, settings.get(CONF_HOLIDAY_ENTITY)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
+            ),
+            _optional_entity_key(
+                CONF_DEVICE_TRACKER, settings.get(CONF_DEVICE_TRACKER)
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["device_tracker", "person"])
+            ),
         }
     )
 
