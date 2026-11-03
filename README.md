@@ -17,7 +17,7 @@ Die Integration beantwortet zwei Fragen:
 - **Auswahl aus mehreren HAFAS-Treffern**
 - **Pro Kachel/Haltestelle:** Stadt, Haltestelle, mehrere Linien, Fußweg
 - **Ziele pro Linie auswählen** – die Integration fragt die nächsten 12 Stunden ab und zeigt die tatsächlich angefahrenen Ziele als Auswahl
-- **Kachel-State** zeigt Linie, Ziel und Zeit: unter 20 Minuten `61 | Mettenhof · in 4 min`, ab 20 Minuten `61 | Mettenhof · 15:22` (der Haltestellenname steht im Entity-Namen)
+- **Kachel-State** zeigt Linie, Ziel und Zeit: unter 20 Minuten `61 | Mettenhof · in 4 min`, ab 20 Minuten `61 | Mettenhof · 15:22`, bei 0 Minuten `61 | Mettenhof · Sofort` (der Haltestellenname steht im Entity-Namen)
 - **Stabile Linienfarben** über `line_color`/`line_colors` – dieselbe Linie hat überall dieselbe Farbe
 - **Nur erreichbare Abfahrten** im Dashboard: Abfahrten, für die der Fußweg nicht mehr reicht, werden aus `departures` herausgefiltert
 - **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
@@ -224,6 +224,12 @@ Ab 20 Minuten Restzeit:
 
 ```text
 61 | Mettenhof · 15:22
+```
+
+Bei 0 Minuten:
+
+```text
+61 | Mettenhof · Sofort
 ```
 
 Der State zeigt immer die **früheste Abfahrt über alle gewählten Linien**, auch wenn der Fußweg für genau diese Abfahrt nicht mehr reicht. Ob sie erreichbar ist, steht in `next_departure.reachable`; die Liste `departures` enthält weiterhin nur erreichbare Abfahrten.
@@ -696,7 +702,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.7
+git tag v3.3.8
 git push origin v3.0.1
 ```
 

@@ -134,6 +134,21 @@ class RoutingTest(unittest.TestCase):
         self.assertEqual(result.state, "Linie 62 ab Kunsthalle in 4 min")
         self.assertEqual(result.best.leave_in_minutes, 2)
 
+    def test_zero_minutes_is_shown_as_sofort(self) -> None:
+        data = {
+            "hospital": _board(
+                "hospital",
+                "Kiel Hospitalstraße",
+                [_departure("61", "Mettenhof", 0)],
+            )
+        }
+        stops = _stops()[:1]
+        stops[0]["walking_minutes"] = 0
+        result = evaluate_routing(stops, data, NOW)
+        assert result.best is not None
+        self.assertEqual(result.state, "Linie 61 ab Hospitalstraße Sofort")
+        self.assertEqual(result.best.time_text, "Sofort")
+
     def test_skips_uncatchable_bus_and_takes_next(self) -> None:
         data = {
             "hospital": _board(

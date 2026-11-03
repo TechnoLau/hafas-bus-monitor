@@ -125,7 +125,9 @@ def _departure_payload(
             ),
             "line_destination": f"{departure.line} | {departure.destination}",
             "time_text": (
-                f"in {minutes_until} min"
+                "Sofort"
+                if minutes_until <= 0
+                else f"in {minutes_until} min"
                 if minutes_until < DISPLAY_MINUTES_THRESHOLD
                 else departure.departure.strftime("%H:%M")
             ),
@@ -275,7 +277,9 @@ class HafasStopSensor(_HafasBaseSensor):
         self._last_next_trip = trip_key
         self._last_next_minutes = display_minutes
 
-        if display_minutes < DISPLAY_MINUTES_THRESHOLD:
+        if display_minutes <= 0:
+            time_text = "Sofort"
+        elif display_minutes < DISPLAY_MINUTES_THRESHOLD:
             time_text = f"in {display_minutes} min"
         else:
             time_text = next_payload["time_text"]

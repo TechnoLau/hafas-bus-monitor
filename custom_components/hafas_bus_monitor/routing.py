@@ -115,7 +115,9 @@ def _candidate_from_departure(
         departure=departure.departure,
         minutes_until=minutes_until,
         time_text=(
-            f"in {minutes_until} min"
+            "Sofort"
+            if minutes_until <= 0
+            else f"in {minutes_until} min"
             if minutes_until < DISPLAY_MINUTES_THRESHOLD
             else f"um {departure.departure:%H:%M}"
         ),
