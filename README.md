@@ -17,7 +17,7 @@ Die Integration beantwortet zwei Fragen:
 - **Auswahl aus mehreren HAFAS-Treffern**
 - **Pro Kachel/Haltestelle:** Stadt, Haltestelle, mehrere Linien, Fußweg
 - **Ziele pro Linie auswählen** – die Integration fragt die nächsten 12 Stunden ab und zeigt die tatsächlich angefahrenen Ziele als Auswahl
-- **Kachel-State** zeigt Linie, Ziel und Zeit: unter 20 Minuten `61 | Mettenhof * in 4 min`, ab 20 Minuten `61 | Mettenhof * 15:22` (der Haltestellenname steht im Entity-Namen)
+- **Kachel-State** zeigt Linie, Ziel und Zeit: unter 20 Minuten `61 | Mettenhof · in 4 min`, ab 20 Minuten `61 | Mettenhof · 15:22` (der Haltestellenname steht im Entity-Namen)
 - **Stabile Linienfarben** über `line_color`/`line_colors` – dieselbe Linie hat überall dieselbe Farbe
 - **Nur erreichbare Abfahrten** im Dashboard: Abfahrten, für die der Fußweg nicht mehr reicht, werden aus `departures` herausgefiltert
 - **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
@@ -148,7 +148,7 @@ Dieser Sensor:
 - ermittelt aus den GPS-Koordinaten die **nächste bereits eingerichtete Haltestelle**
 - zeigt deren nächste erreichbare Abfahrt, z. B.:
   ```text
-  Hospitalstraße: 61 | Mettenhof * in 4 min
+  Hospitalstraße: 61 | Mettenhof · in 4 min
   ```
 - liefert `distance_m`, `stop`, `walking_minutes`, `departures` und `next_departure` als Attribute
 - ignoriert Haltestellen, die nicht als Kachel eingerichtet sind
@@ -208,13 +208,13 @@ Die Entity-IDs werden aus dem Haltestellennamen abgeleitet (Stadtpräfix wird en
 Unter 20 Minuten Restzeit:
 
 ```text
-61 | Mettenhof * in 4 min
+61 | Mettenhof · in 4 min
 ```
 
 Ab 20 Minuten Restzeit:
 
 ```text
-61 | Mettenhof * 15:22
+61 | Mettenhof · 15:22
 ```
 
 Der Entity-Name ist nur der Haltestellenname, z. B. **Hospitalstraße**. Die Kachel zeigt damit Haltestelle (Name), Linie, Ziel und Abfahrtszeit.
@@ -373,7 +373,7 @@ content: |
   {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
   {% if departures %}
   {% for dep in departures[:6] %}
-  - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+  - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
   {% endfor %}
   {% else %}
   Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -408,7 +408,7 @@ cards:
       {% set nearest = state_attr('sensor.hafas_naechste_haltestelle', 'departures') or [] %}
       Entfernung: {{ state_attr('sensor.hafas_naechste_haltestelle', 'distance_m') }} m
       {% for dep in nearest[:5] %}
-      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}**
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** · **{{ dep.time_text }}**
       {% endfor %}
 
   - type: markdown
@@ -417,7 +417,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:5] %}
-      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt.
@@ -434,7 +434,7 @@ title: HAFAS-Detaildaten Hospitalstraße
 content: |
   {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
   {% for dep in all %}
-  - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · {{ dep.line_destination }} * {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+  - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · {{ dep.line_destination }} · {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
   {% endfor %}
 ```
 
@@ -669,7 +669,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.2
+git tag v3.3.3
 git push origin v3.0.1
 ```
 

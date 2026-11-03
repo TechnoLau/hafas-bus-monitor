@@ -275,7 +275,7 @@ class HafasStopSensor(_HafasBaseSensor):
             time_text = f"in {display_minutes} min"
         else:
             time_text = next_payload["time_text"]
-        return f"{next_payload['line_destination']} * {time_text}"
+        return f"{next_payload['line_destination']} · {time_text}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
