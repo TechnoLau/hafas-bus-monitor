@@ -9,7 +9,7 @@ cards:
       {% if best %}
       ## {{ states('sensor.hafas_schnellste_verbindung') }}
 
-      **Ziel:** {{ best.destination }}  
+      <span style="color: {{ best.line_color }}">●</span> **Ziel:** {{ best.destination }}  
       **Fußweg:** {{ best.walk_minutes }} Min  
       **Losgehen in:** {{ best.leave_in_minutes }} Min  
       **Steig:** {{ best.platform or '–' }}{% if best.delay > 0 %} · +{{ best.delay }} Min{% endif %}
@@ -23,7 +23,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+      - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -35,7 +35,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+      - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -46,5 +46,5 @@ cards:
     content: |
       {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
       {% for dep in all %}
-      - {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+      - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
       {% endfor %}

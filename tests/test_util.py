@@ -14,6 +14,7 @@ load_pure_modules()
 
 from hafas_bus_monitor.util import (
     destination_allowed,
+    line_color,
     normalize_line_targets,
     normalize_stop,
     targets_for_line,
@@ -50,6 +51,10 @@ class DestinationNormalizationTest(unittest.TestCase):
             stop["line_targets"],
             {"61": ["Russee"], "62": ["Russee"]},
         )
+
+    def test_line_color_is_stable(self) -> None:
+        self.assertEqual(line_color("61"), line_color("61"))
+        self.assertEqual(line_color(" N42 "), line_color("n42"))
 
     def test_empty_targets_mean_all_destinations(self) -> None:
         self.assertTrue(destination_allowed("61", "Irgendwo", {"61": []}))

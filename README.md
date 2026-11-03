@@ -17,12 +17,13 @@ Die Integration beantwortet zwei Fragen:
 - **Auswahl aus mehreren HAFAS-Treffern**
 - **Pro Kachel/Haltestelle:** Stadt, Haltestelle, mehrere Linien, Fußweg
 - **Ziele pro Linie auswählen** – die Integration fragt die nächsten 12 Stunden ab und zeigt die tatsächlich angefahrenen Ziele als Auswahl
-- **Kachel-State** zeigt Linie, Ziel und Abfahrtszeit, z. B. `61 → Mettenhof · 15:22 · 4 Min` (der Haltestellenname steht im Entity-Namen)
+- **Kachel-State** zeigt Linie, Ziel und Zeit: unter 20 Minuten `61 → Mettenhof · in 4 Min`, ab 20 Minuten `61 → Mettenhof · 15:22` (der Haltestellenname steht im Entity-Namen)
+- **Stabile Linienfarben** über `line_color`/`line_colors` – dieselbe Linie hat überall dieselbe Farbe
 - **Nur erreichbare Abfahrten** im Dashboard: Abfahrten, für die der Fußweg nicht mehr reicht, werden aus `departures` herausgefiltert
 - **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
 - **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
-- **Optionaler Ferien-Sensor**: bei `on` wird die Abfrage pausiert (`Ferien`)
+- **Ferienmodus-Switch** `switch.hafas_ferienmodus` und optionaler Ferien-Sensor; bei aktiv pausiert die Abfrage (`Ferien`)
 - **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry und editierbar
 - **Service** `hafas_bus_monitor.refresh`
 - **Keine externen Python-Abhängigkeiten** (nutzt `aiohttp` aus Home Assistant)
@@ -90,6 +91,7 @@ Beim ersten Hinzufügen wird **noch keine Haltestelle** abgefragt. Es entsteht n
 | **Aktualisierungsintervall** | Polling-Intervall (Minimum 30 s) | `30` Sekunden |
 | **Schnellste-Verbindung-Sensor** | Routing-Sensor anlegen | `an` |
 | **Ferien-Sensor (optional)** | `binary_sensor`/`input_boolean`, `on` = Ferien | `input_boolean.schulferien` |
+| **Ferienmodus-Switch** | separat schaltbar, pausiert ebenfalls | `switch.hafas_ferienmodus` |
 
 Nach dem Anlegen erscheint die Integration unter **Einstellungen → Geräte & Dienste**. Dort gibt es den Button **Hinzufügen** für Haltestellen/Kacheln. Damit lassen sich beliebig viele Entitäten anlegen – eine pro Kachel.
 
@@ -102,7 +104,7 @@ Der Button **Hinzufügen** öffnet den schrittweisen Dialog:
 3. **Busse** – eine oder mehrere Linien, z. B. `61, 62`
 4. **Ziel pro Bus** – für jede Linie werden die HAFAS-Ziele der nächsten 12 Stunden angezeigt:
    - ein oder mehrere Ziele auswählen
-   - **keine Auswahl** = alle Ziele dieser Linie
+   - **keine Auswahl** oder **„Alle Ziele / alle Richtungen“** = alle Ziele dieser Linie
    - wird kein Ziel gefunden, entfällt der Schritt
 5. **Fußweg** – Minuten bis zum Steig; danach wird die Kachel angelegt
 
@@ -139,7 +141,9 @@ Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es is
 - Es läuft nur zwischen **06:00 und 22:00 Uhr** (Zeitzone `Europe/Berlin`).
 - Außerhalb dieser Zeit zeigt der Sensor `Ruhezeit` und es werden keine HAFAS-Anfragen gesendet.
 - Ist ein **Ferien-Sensor** konfiguriert und steht auf `on`, zeigt der Sensor `Ferien`; es wird nicht abgefragt.
-- Ohne Ferien-Sensor wird auch in den Ferien abgefragt. Die Integration kann Schulferien nicht bundesweit automatisch kennen; dafür einen eigenen `binary_sensor` oder `input_boolean` verwenden.
+- Zusätzlich gibt es den Switch **`switch.hafas_ferienmodus`** („Ferienmodus“). Er pausiert die Abfrage manuell und merkt sich seinen Zustand über einen Neustart.
+- Der Switch hat einen klaren Entitätsnamen; sein Zustand ist `on`/`off` und wird von Home Assistant als Ein/Aus angezeigt.
+- Ohne Ferien-Sensor/Switch wird auch in den Ferien abgefragt. Die Integration kann Schulferien nicht bundesweit automatisch kennen; dafür einen eigenen `binary_sensor`/`input_boolean` oder den Switch verwenden.
 
 Beispiel für einen manuellen Helfer:
 
@@ -171,13 +175,22 @@ Die Entity-IDs werden aus dem Haltestellennamen abgeleitet (Stadtpräfix wird en
 | Haltestellen-Sensor/Kachel | `sensor.hafas_hospitalstrasse` |
 | Haltestellen-Sensor/Kachel | `sensor.hafas_kunsthalle` |
 | Routing-Sensor | `sensor.hafas_schnellste_verbindung` |
+| Ferienmodus | `switch.hafas_ferienmodus` |
 
 ### 1. Haltestellen-Sensor (Kachel)
 
 **State:**
 
+Unter 20 Minuten Restzeit:
+
 ```text
-61 → Mettenhof · 15:22 · 4 Min
+61 → Mettenhof · in 4 Min
+```
+
+Ab 20 Minuten Restzeit:
+
+```text
+61 → Mettenhof · 15:22
 ```
 
 Der Entity-Name enthält die Haltestelle, z. B. **HAFAS Hospitalstraße**. Die Kachel zeigt damit Haltestelle (Name), Linie, Ziel und Abfahrtszeit.
@@ -198,10 +211,11 @@ Weitere Zustände:
 | `stop` / `stop_id` / `city` | Haltestelle und Stadt |
 | `lines` | Linienfilter |
 | `line_targets` | Ziele pro Linie |
+| `line_colors` | Stabile Farbe pro Linie, z. B. `{"61": "#3cb44b", "62": "#4363d8"}` |
 | `walking_minutes` | Fußweg |
 | `scan_minutes` | Vorschau-Fenster |
-| `departures` | **Nur erreichbare** Abfahrten der gewählten Linien/Ziele (max. 8) |
-| `unreachable_departures` | Passende Abfahrten, für die der Fußweg **nicht** reicht |
+| `departures` | **Nur erreichbare** Abfahrten der gewählten Linien/Ziele (max. 12) |
+| `unreachable_departures` | Passende Abfahrten, für die der Fußweg **nicht** reicht (max. 4) |
 | `all_departures` | Alle Busse im Fenster (ungefiltert, Transparenz/Debug, max. 8) |
 | `departure_count` | Anzahl der erreichbaren Abfahrten |
 | `next_departure` | Nächste erreichbare Abfahrt als vollständiges Objekt |
@@ -236,6 +250,9 @@ realtime: true
 trip_id: "..."
 stop_name: "Kiel Hospitalstraße"
 display_short: "61 → Mettenhof · 15:22"
+line_destination: "61 → Mettenhof"
+time_text: "in 4 Min"
+line_color: "#3cb44b"
 ```
 
 Damit lassen sich eigene Karten, Tabellen oder Automationen bauen. `departures` ist bereits nach **Linie**, **Ziel** und **Fußweg** gefiltert.
@@ -246,6 +263,12 @@ Damit lassen sich eigene Karten, Tabellen oder Automationen bauen. `departures` 
 
 ```text
 Linie 61 ab Kunsthalle in 4 Min
+```
+
+Ab 20 Minuten Restzeit:
+
+```text
+Linie 61 ab Kunsthalle um 15:45
 ```
 
 Bei Pause:
@@ -282,6 +305,7 @@ stop: "Kiel Kunsthalle"
 stop_short: "Kunsthalle"
 walk_minutes: 6
 minutes_until: 4
+time_text: "in 4 Min"
 leave_in_minutes: 0
 departure_time_local: "15:22"
 delay: 0
@@ -289,6 +313,7 @@ platform: "A"
 catchable: true
 line_targets:
   "61": ["Mettenhof"]
+line_color: "#3cb44b"
 ```
 
 ### Wie das Routing rechnet
@@ -324,7 +349,7 @@ content: |
   {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
   {% if departures %}
   {% for dep in departures[:6] %}
-  - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+  - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
   {% endfor %}
   {% else %}
   Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -343,7 +368,7 @@ cards:
       {% if best %}
       ## {{ states('sensor.hafas_schnellste_verbindung') }}
 
-      **Ziel:** {{ best.destination }}  
+      <span style="color: {{ best.line_color }}">●</span> **Ziel:** {{ best.destination }}  
       **Fußweg:** {{ best.walk_minutes }} Min  
       **Losgehen in:** {{ best.leave_in_minutes }} Min  
       **Steig:** {{ best.platform or '–' }}{% if best.delay > 0 %} · +{{ best.delay }} Min{% endif %}
@@ -357,7 +382,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:5] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min
+      - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt.
@@ -374,9 +399,16 @@ title: HAFAS-Detaildaten Hospitalstraße
 content: |
   {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
   {% for dep in all %}
-  - {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+  - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
   {% endfor %}
 ```
+
+### Linienfarben
+
+Jede Abfahrt enthält `line_color`, jede Kachel zusätzlich `line_colors`. Die Farbe wird deterministisch aus der Liniennummer berechnet: **Linie 61 hat an jeder Haltestelle und in jedem Dashboard dieselbe Farbe.**
+
+- Für eigene Karten/Diagramme: `dep.line_color` bzw. `state_attr('sensor.hafas_hospitalstrasse', 'line_colors')` verwenden.
+- Der normale Home-Assistant-History-Graph färbt **Entitäten**, nicht einzelne Linien. Für linienbasierte Graphen eine Karte verwenden, die `line_color` auswertet (z. B. ApexCharts mit `data_generator`).
 
 > Passe die Entity-IDs an, falls deine Haltestellen anders heißen. Die ID findest du unter **Einstellungen → Geräte & Dienste → Entitäten**.
 
@@ -542,6 +574,14 @@ Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-
 - Unter **Einstellungen → Geräte & Dienste → Entitäten** umbenennen.
 - Dashboard/Automation entsprechend anpassen.
 
+### Eine Fahrtrichtung fehlt
+
+- Wenn pro Linie nur ein Ziel ausgewählt wurde, wird logischerweise nur diese Richtung angezeigt.
+- Kachel bearbeiten und beim Ziel **„Alle Ziele / alle Richtungen“** auswählen oder die Zielauswahl leeren.
+- Ohne Ziel-Auswahl werden alle Richtungen der Linie angezeigt.
+- `all_departures` prüfen: Dort stehen alle Busse, die HAFAS für die Haltestelle liefert.
+- HAFAS liefert nur Richtungen, die die Haltestelle im Abfragefenster tatsächlich bedienen. Alle zugehörigen Steige der gewählten Haltestelle werden über die HAFAS-Haltestellen-ID abgefragt.
+
 ### „Diese Haltestelle ist bereits eingerichtet“
 
 - Jede Haltestelle darf pro Eintrag nur einmal vorkommen.
@@ -594,7 +634,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.0.1
+git tag v3.1.1
 git push origin v3.0.1
 ```
 
@@ -614,6 +654,7 @@ hafas-bus-monitor/
 │       ├── coordinator.py
 │       ├── routing.py
 │       ├── sensor.py
+│       ├── switch.py
 │       ├── util.py
 │       ├── services.yaml
 │       ├── strings.json

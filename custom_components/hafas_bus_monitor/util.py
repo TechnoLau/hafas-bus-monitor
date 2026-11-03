@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Final
 
 from .const import (
     CONF_CITY,
@@ -37,6 +38,36 @@ from .const import (
 )
 
 _LINE_SPLIT_RE = re.compile(r"[,;/\s]+")
+
+# Stable, high-contrast colors for the same line across all stops/graphs.
+LINE_COLORS: Final = (
+    "#e6194b",
+    "#3cb44b",
+    "#4363d8",
+    "#f58231",
+    "#911eb4",
+    "#42d4f4",
+    "#f032e6",
+    "#bfef45",
+    "#fabed4",
+    "#469990",
+    "#dcbeff",
+    "#9a6324",
+)
+
+
+def line_color(line: str) -> str:
+    """Return a stable color for a line label.
+
+    Numeric lines use their number modulo the palette, so consecutive lines
+    such as 61/62 get clearly different colors.  Alphanumeric lines use a
+    stable hash.
+    """
+    cleaned = str(line or "?").strip()
+    if cleaned.isdigit():
+        return LINE_COLORS[int(cleaned) % len(LINE_COLORS)]
+    digest = hashlib.sha1(cleaned.casefold().encode()).hexdigest()
+    return LINE_COLORS[int(digest[:8], 16) % len(LINE_COLORS)]
 
 
 def normalize_lines(value: str | Iterable[str] | None) -> list[str]:

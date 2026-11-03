@@ -15,8 +15,14 @@ from datetime import datetime
 from typing import Any
 
 from .api import HafasDeparture, StopDepartures
-from .const import CONF_LINE_TARGETS, CONF_STOP_ID, CONF_STOP_NAME, CONF_WALKING_MINUTES
-from .util import short_stop_name
+from .const import (
+    CONF_LINE_TARGETS,
+    CONF_STOP_ID,
+    CONF_STOP_NAME,
+    CONF_WALKING_MINUTES,
+    DISPLAY_MINUTES_THRESHOLD,
+)
+from .util import line_color, short_stop_name
 
 
 @dataclass(slots=True)
@@ -30,9 +36,11 @@ class RouteCandidate:
     walk_minutes: int
     line_targets: dict[str, list[str]]
     line: str
+    line_color: str
     destination: str
     departure: datetime
     minutes_until: int
+    time_text: str
     leave_in_minutes: int
     catchable: bool
     delay: int
@@ -49,10 +57,12 @@ class RouteCandidate:
             "walk_minutes": self.walk_minutes,
             "line_targets": self.line_targets,
             "line": self.line,
+            "line_color": self.line_color,
             "destination": self.destination,
             "departure_time": self.departure.isoformat(),
             "departure_time_local": self.departure.strftime("%H:%M"),
             "minutes_until": self.minutes_until,
+            "time_text": self.time_text,
             "leave_in_minutes": self.leave_in_minutes,
             "catchable": self.catchable,
             "delay": self.delay,
@@ -75,7 +85,9 @@ class RoutingResult:
         if self.best is None:
             return "Keine Verbindung"
         stop = self.best.stop_short or self.best.stop_name
-        return f"Linie {self.best.line} ab {stop} in {self.best.minutes_until} Min"
+        if self.best.minutes_until < DISPLAY_MINUTES_THRESHOLD:
+            return f"Linie {self.best.line} ab {stop} in {self.best.minutes_until} Min"
+        return f"Linie {self.best.line} ab {stop} um {self.best.departure:%H:%M}"
 
 
 def _candidate_from_departure(
@@ -100,9 +112,15 @@ def _candidate_from_departure(
         walk_minutes=walk_minutes,
         line_targets=dict(stop.get(CONF_LINE_TARGETS) or {}),
         line=departure.line,
+        line_color=line_color(departure.line),
         destination=departure.destination,
         departure=departure.departure,
         minutes_until=minutes_until,
+        time_text=(
+            f"in {minutes_until} Min"
+            if minutes_until < DISPLAY_MINUTES_THRESHOLD
+            else f"um {departure.departure:%H:%M}"
+        ),
         leave_in_minutes=leave_in_minutes,
         catchable=catchable,
         delay=departure.delay_minutes,

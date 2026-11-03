@@ -177,6 +177,21 @@ class RoutingTest(unittest.TestCase):
         assert result.best is not None
         self.assertEqual(result.best.minutes_until, 13)
 
+    def test_over_threshold_uses_clock_time(self) -> None:
+        data = {
+            "hospital": _board(
+                "hospital",
+                "Kiel Hospitalstraße",
+                [_departure("61", "Mettenhof", 25)],
+            )
+        }
+        result = evaluate_routing(_stops()[:1], data, NOW)
+        assert result.best is not None
+        self.assertEqual(
+            result.state,
+            "Linie 61 ab Hospitalstraße um 13:25",
+        )
+
     def test_line_targets_are_exposed(self) -> None:
         data = {
             "hospital": _board(

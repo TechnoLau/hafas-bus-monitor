@@ -56,6 +56,11 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             always_update=True,
         )
         self._last_errors: dict[str, str] = {}
+        self.holiday_override = False
+
+    def set_holiday_override(self, enabled: bool) -> None:
+        """Set the manual holiday mode from the switch."""
+        self.holiday_override = bool(enabled)
 
     @property
     def stops(self) -> list[dict[str, Any]]:
@@ -91,6 +96,9 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _pause_reason(self, now: datetime) -> str | None:
         """Return why polling should be skipped, if applicable."""
+        if self.holiday_override:
+            return "holiday"
+
         if now.hour < ACTIVE_START_HOUR or now.hour >= ACTIVE_END_HOUR:
             return "outside_hours"
 

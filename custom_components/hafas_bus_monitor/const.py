@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "hafas_bus_monitor"
 NAME: Final = "HAFAS Bus Monitor"
-VERSION: Final = "3.0.0"
+VERSION: Final = "3.1.0"
 
 # Configuration keys ---------------------------------------------------------
 CONF_CITY: Final = "city"
@@ -48,8 +48,11 @@ MAX_SCAN_MINUTES: Final = 180
 MIN_UPDATE_INTERVAL: Final = 30
 MAX_UPDATE_INTERVAL: Final = 300
 
-MAX_DEPARTURES: Final = 8
+MAX_DEPARTURES: Final = 12
+MAX_ALL_DEPARTURES: Final = 8
+MAX_UNREACHABLE_DEPARTURES: Final = 4
 MAX_FETCH_DEPARTURES: Final = 100
+DISPLAY_MINUTES_THRESHOLD: Final = 20
 DESTINATION_DISCOVERY_MINUTES: Final = 720
 DESTINATION_DISCOVERY_MAX_TRIPS: Final = 300
 MAX_LOCATION_RESULTS: Final = 10
@@ -76,7 +79,7 @@ HAFAS_AUTH: Final = {
 # locally, because HAFAS line IDs differ between deployments.
 HAFAS_BUS_PRODUCT_MASK: Final = 544
 HAFAS_USER_AGENT: Final = (
-    "hafas-bus-monitor-homeassistant/3.0 "
+    "hafas-bus-monitor-homeassistant/3.1 "
     "(+https://github.com/TechnoLau/hafas-bus-monitor)"
 )
 
@@ -109,6 +112,7 @@ ATTR_PAUSED_REASON: Final = "paused_reason"
 ATTR_ACTIVE_HOURS: Final = "active_hours"
 ATTR_LINE_TARGETS: Final = "line_targets"
 ATTR_MINUTES_UNTIL_DEPARTURE: Final = "minutes_until_departure"
+ATTR_LINE_COLORS: Final = "line_colors"
 
 SELECTION_METHOD: Final = (
     "Earliest real-time departure that can still be reached on foot; "

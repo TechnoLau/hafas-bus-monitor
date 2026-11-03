@@ -60,6 +60,8 @@ from .util import (
 
 _LOGGER = logging.getLogger(__name__)
 
+ALL_TARGETS = "__all__"
+
 
 def _text_selector() -> selector.TextSelector:
     """Return a normal single-line text selector."""
@@ -416,7 +418,13 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
             return await self.async_step_walking()
 
         line = self._target_queue[self._target_index]
-        options = [
+        language = str(getattr(self.hass.config, "language", "de"))
+        all_label = (
+            "Alle Ziele / alle Richtungen"
+            if language.startswith("de")
+            else "All destinations / all directions"
+        )
+        options = [{"value": ALL_TARGETS, "label": all_label}] + [
             {"value": destination, "label": destination}
             for destination in self._destinations.get(line, [])
         ]
@@ -427,11 +435,14 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
                 destination.casefold(): destination
                 for destination in self._destinations.get(line, [])
             }
-            self._line_targets[line] = [
-                allowed[item.casefold()]
-                for item in selected
-                if item.casefold() in allowed
-            ]
+            if ALL_TARGETS in selected:
+                self._line_targets[line] = []
+            else:
+                self._line_targets[line] = [
+                    allowed[item.casefold()]
+                    for item in selected
+                    if item.casefold() in allowed
+                ]
             self._target_index += 1
             return await self.async_step_targets()
 

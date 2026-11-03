@@ -23,6 +23,7 @@ from .const import (
     ATTR_DEPARTURES,
     ATTR_ERROR,
     ATTR_LAST_UPDATE,
+    ATTR_LINE_COLORS,
     ATTR_LINE_TARGETS,
     ATTR_LINES,
     ATTR_MINUTES_UNTIL_DEPARTURE,
@@ -45,14 +46,17 @@ from .const import (
     CONF_STOPS,
     CONF_SUBENTRY_ID,
     CONF_WALKING_MINUTES,
+    DISPLAY_MINUTES_THRESHOLD,
     DOMAIN,
+    MAX_ALL_DEPARTURES,
     MAX_DEPARTURES,
+    MAX_UNREACHABLE_DEPARTURES,
     SELECTION_METHOD,
     VERSION,
 )
 from .coordinator import HafasDataUpdateCoordinator
 from .routing import RoutingResult, evaluate_routing
-from .util import short_stop_name
+from .util import line_color, short_stop_name
 
 
 async def async_setup_entry(
@@ -112,6 +116,13 @@ def _departure_payload(
                 f"{departure.line} → {departure.destination} · "
                 f"{departure.departure:%H:%M}"
             ),
+            "line_destination": f"{departure.line} → {departure.destination}",
+            "time_text": (
+                f"in {minutes_until} Min"
+                if minutes_until < DISPLAY_MINUTES_THRESHOLD
+                else departure.departure.strftime("%H:%M")
+            ),
+            "line_color": line_color(departure.line),
         }
     )
     return payload
@@ -230,10 +241,7 @@ class HafasStopSensor(_HafasBaseSensor):
         payloads = self._departure_payloads
         for payload in payloads:
             if payload["reachable"] and not payload["cancelled"]:
-                return (
-                    f"{payload['display_short']} · "
-                    f"{payload['minutes_until_departure']} Min"
-                )
+                return f"{payload['line_destination']} · {payload['time_text']}"
         if self._stop_data is None:
             return None
         return "Keine erreichbare Abfahrt"
@@ -254,7 +262,7 @@ class HafasStopSensor(_HafasBaseSensor):
             payload
             for payload in payloads
             if not payload["reachable"] and not payload["cancelled"]
-        ][:MAX_DEPARTURES]
+        ][:MAX_UNREACHABLE_DEPARTURES]
 
         fetched_at = data.fetched_at if data is not None else None
         if fetched_at is None and self.coordinator.data:
@@ -270,7 +278,7 @@ class HafasStopSensor(_HafasBaseSensor):
                     stop_name=str(self._stop.get(CONF_STOP_NAME) or ""),
                 )
                 for departure in data.all_departures
-            ][:MAX_DEPARTURES]
+            ][:MAX_ALL_DEPARTURES]
 
         return {
             ATTR_STOP: self._stop.get(CONF_STOP_NAME),
@@ -278,6 +286,13 @@ class HafasStopSensor(_HafasBaseSensor):
             ATTR_CITY: self._stop.get("city") or self._config.get(CONF_CITY),
             ATTR_LINES: list(self._stop.get(CONF_LINES) or []),
             ATTR_LINE_TARGETS: dict(self._stop.get(CONF_LINE_TARGETS) or {}),
+            ATTR_LINE_COLORS: {
+                **{
+                    line: line_color(line)
+                    for line in (self._stop.get(CONF_LINES) or [])
+                },
+                **{payload["line"]: payload["line_color"] for payload in payloads},
+            },
             ATTR_WALKING_MINUTES: self._walking_minutes,
             ATTR_SCAN_MINUTES: int(self._config.get(CONF_SCAN_MINUTES) or 0),
             ATTR_DEPARTURES: reachable,
@@ -353,6 +368,11 @@ class HafasRoutingSensor(_HafasBaseSensor):
             ATTR_OPTIONS: routing.options,
             "reason": routing.reason,
             ATTR_SELECTION_METHOD: SELECTION_METHOD,
+            ATTR_LINE_COLORS: {
+                option["line"]: option["line_color"]
+                for option in routing.options
+                if option.get("line_color")
+            },
             "stops": [
                 {
                     ATTR_STOP_ID: stop.get(CONF_STOP_ID),
