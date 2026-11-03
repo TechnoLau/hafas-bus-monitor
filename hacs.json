@@ -1,6 +1,6 @@
 {
   "name": "HAFAS Bus Monitor",
-  "homeassistant": "2024.6.0",
+  "homeassistant": "2025.4.0",
   "render_readme": true,
   "country": [
     "DE"

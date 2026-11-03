@@ -3,152 +3,94 @@
     "step": {
       "user": {
         "title": "HAFAS Bus Monitor",
-        "description": "Configure one tile/stop per entity. Enter city and stop search term (for example \"Kiel\" and \"Hospitalstraße\"). Preferred lines are comma-separated; leave empty to show all lines. After selecting the stop, choose destinations per line. Polling runs every 30 seconds between 06:00 and 22:00; an optional holiday sensor pauses it during school holidays.",
+        "description": "Create the integration hub. Stops/tiles are added afterwards with the Add button on the integration page. Polling runs every 30 seconds between 06:00 and 22:00.",
         "data": {
-          "city": "City",
-          "stop_query": "Stop (search term)",
-          "lines": "Preferred lines (comma-separated, empty = all)",
-          "walking_minutes": "Walking time to this stop (minutes)",
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
           "routing_enabled": "Create fastest-connection sensor",
           "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
-      },
-      "select_stop": {
-        "title": "Select stop",
-        "description": "{count} possible stops found for \"{query}\". Select the correct stop.",
-        "data": {
-          "stop": "Stop"
-        }
-      },
-      "add_stop": {
-        "title": "Add another stop?",
-        "description": "{count} tile(s) configured: {stops}. Add another tile/stop to compare walking times for the fastest connection.",
-        "data": {
-          "add_another": "Add another stop"
-        }
-      },
-      "stop": {
-        "title": "Add stop",
-        "description": "Enter city, search term and line filter for the additional tile/stop.",
-        "data": {
-          "city": "City",
-          "stop_query": "Stop (search term)",
-          "lines": "Preferred lines (comma-separated, empty = all)",
-          "walking_minutes": "Walking time to this stop (minutes)"
-        }
-      },
-      "targets": {
-        "title": "Select destinations",
-        "description": "Select the destinations for line {line} at {stop}. Leave everything unselected to show all destinations. You can select one or more destinations per line.",
-        "data": {
-          "targets": "Destinations"
-        }
       }
     },
-    "error": {
-      "cannot_connect": "The HAFAS/NAH.SH service could not be reached. Check your internet connection and try again.",
-      "no_stops": "No stop was found for this search. Try a shorter or slightly different search term.",
-      "duplicate_stop": "This stop is already configured.",
-      "city_required": "A city is required.",
-      "stop_required": "A stop search term is required.",
-      "invalid_stop": "The selected stop is invalid. Please try again."
-    },
     "abort": {
-      "already_configured": "This stop is already configured.",
-      "invalid_flow": "The configuration flow is no longer valid. Please start again.",
-      "single_instance_allowed": "Only one HAFAS Bus Monitor entry is allowed. Add or edit stops in the existing entry."
+      "single_instance_allowed": "Only one HAFAS Bus Monitor entry is allowed. Add stops to the existing entry."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "HAFAS Bus Monitor options",
-        "menu_options": {
-          "settings": "Polling and routing settings",
-          "add_stop": "Add tile/stop",
-          "edit_stop": "Edit lines / walking time",
-          "remove_stop": "Remove stop",
-          "save": "Save and reload",
-          "edit_targets": "Edit destinations per line"
-        }
-      },
-      "settings": {
-        "title": "Polling and routing settings",
-        "description": "The update interval controls how often HAFAS is queried while active (06:00–22:00). The look-ahead window controls how far into the future departures are requested. The optional holiday sensor pauses polling while it is on.",
+        "title": "HAFAS Bus Monitor settings",
+        "description": "Polling runs only between 06:00 and 22:00. An optional holiday sensor pauses polling while it is on.",
         "data": {
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
           "routing_enabled": "Create fastest-connection sensor",
           "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
-      },
-      "add_stop": {
-        "title": "Add stop",
-        "description": "Enter the city and stop search term, then select the correct HAFAS stop.",
-        "data": {
-          "city": "City",
-          "stop_query": "Stop (search term)",
-          "lines": "Preferred lines (comma-separated, empty = all)",
-          "walking_minutes": "Walking time to this stop (minutes)"
-        }
-      },
-      "select_stop": {
-        "title": "Select stop",
-        "description": "{count} possible stops found for \"{query}\". Select the correct stop.",
-        "data": {
-          "stop": "Stop"
-        }
-      },
-      "edit_stop": {
-        "title": "Edit stop",
-        "description": "Select the stop whose line filter or walking time you want to change.",
-        "data": {
-          "stop": "Stop"
-        }
-      },
-      "edit_stop_form": {
-        "title": "Edit {stop}",
-        "description": "Change the line filter or walking time for this stop.",
-        "data": {
-          "lines": "Preferred lines (comma-separated, empty = all)",
-          "walking_minutes": "Walking time to this stop (minutes)"
-        }
-      },
-      "remove_stop": {
-        "title": "Remove stop",
-        "description": "Select the stop to remove. At least one stop must remain.",
-        "data": {
-          "stop": "Stop"
-        }
-      },
-      "targets": {
-        "title": "Select destinations",
-        "description": "Select the destinations for line {line} at {stop}. Leave everything unselected to show all destinations. You can select one or more destinations per line.",
-        "data": {
-          "targets": "Destinations"
-        }
-      },
-      "edit_targets": {
-        "title": "Edit destinations",
-        "description": "Select the stop whose destination filter you want to change.",
-        "data": {
-          "stop": "Stop"
-        }
       }
-    },
-    "error": {
-      "cannot_connect": "The HAFAS/NAH.SH service could not be reached. Check your internet connection and try again.",
-      "no_stops": "No stop was found for this search. Try a shorter or slightly different search term.",
-      "duplicate_stop": "This stop is already configured.",
-      "city_required": "A city is required.",
-      "stop_required": "A stop search term is required.",
-      "invalid_stop": "The selected stop is invalid. Please try again."
-    },
-    "abort": {
-      "invalid_flow": "The configuration flow is no longer valid. Please start again.",
-      "already_configured": "This stop is already configured."
+    }
+  },
+  "config_subentries": {
+    "stop": {
+      "entry_type": "Stop / tile",
+      "initiate_flow": {
+        "user": "Add stop"
+      },
+      "step": {
+        "user": {
+          "title": "Select city",
+          "description": "Enter the city for the stop search.",
+          "data": {
+            "city": "City"
+          }
+        },
+        "stop": {
+          "title": "Select stop",
+          "description": "Search a stop in {city}.",
+          "data": {
+            "stop_query": "Stop (search term)"
+          }
+        },
+        "select_stop": {
+          "title": "Select stop",
+          "description": "{count} stops found for \"{query}\". Select the correct one.",
+          "data": {
+            "stop": "Stop"
+          }
+        },
+        "lines": {
+          "title": "Select buses",
+          "description": "Enter the preferred lines for {stop} as a comma-separated list. Leave empty for all lines.",
+          "data": {
+            "lines": "Preferred lines (comma-separated, empty = all)"
+          }
+        },
+        "targets": {
+          "title": "Select destinations",
+          "description": "Line {line} at {stop}. Select one or more destinations; leave everything unselected for all destinations.",
+          "data": {
+            "targets": "Destinations"
+          }
+        },
+        "walking": {
+          "title": "Walking time",
+          "description": "Walking time to {stop}. Selected lines: {lines}.",
+          "data": {
+            "walking_minutes": "Walking time (minutes)"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "The HAFAS/NAH.SH service could not be reached. Check your internet connection and try again.",
+        "no_stops": "No stop was found for this search. Try a shorter or slightly different search term.",
+        "invalid_stop": "The selected stop is invalid. Please try again.",
+        "city_required": "A city is required.",
+        "stop_required": "A stop search term is required.",
+        "already_configured": "This stop is already configured."
+      },
+      "abort": {
+        "already_configured": "This stop is already configured."
+      }
     }
   },
   "services": {

@@ -3,152 +3,94 @@
     "step": {
       "user": {
         "title": "HAFAS Bus Monitor einrichten",
-        "description": "Eine Kachel/Haltestelle pro Entität einrichten. Stadt und Suchbegriff eingeben (z. B. \"Kiel\" und \"Hospitalstraße\"). Bevorzugte Linien kommagetrennt; leer lassen = alle Linien. Nach der Haltestellenauswahl werden die Ziele pro Linie gewählt. Die Abfrage läuft alle 30 Sekunden zwischen 06:00 und 22:00; ein optionaler Ferien-Sensor pausiert in den Schulferien.",
+        "description": "Die Integration wird als zentraler Eintrag angelegt. Haltestellen/Kacheln werden danach über den Button „Hinzufügen“ auf der Integrationsseite ergänzt. Die Abfrage läuft alle 30 Sekunden zwischen 06:00 und 22:00.",
         "data": {
-          "city": "Stadt",
-          "stop_query": "Haltestelle (Suchbegriff)",
-          "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)",
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
           "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
         }
-      },
-      "select_stop": {
-        "title": "Haltestelle auswählen",
-        "description": "{count} mögliche Haltestellen für \"{query}\" gefunden. Bitte die richtige auswählen.",
-        "data": {
-          "stop": "Haltestelle"
-        }
-      },
-      "add_stop": {
-        "title": "Weitere Haltestelle hinzufügen?",
-        "description": "{count} Kachel(n) eingerichtet: {stops}. Eine weitere Kachel/Haltestelle ermöglicht den Vergleich der Fußweg-Zeiten für die schnellste Verbindung.",
-        "data": {
-          "add_another": "Weitere Haltestelle hinzufügen"
-        }
-      },
-      "stop": {
-        "title": "Haltestelle hinzufügen",
-        "description": "Stadt, Suchbegriff und Linienfilter für die zusätzliche Kachel/Haltestelle eingeben.",
-        "data": {
-          "city": "Stadt",
-          "stop_query": "Haltestelle (Suchbegriff)",
-          "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
-        }
-      },
-      "targets": {
-        "title": "Ziele auswählen",
-        "description": "Wähle die Ziele für Linie {line} an {stop}. Keine Auswahl = alle Ziele. Du kannst pro Linie ein oder mehrere Ziele auswählen.",
-        "data": {
-          "targets": "Ziele"
-        }
       }
     },
-    "error": {
-      "cannot_connect": "Der HAFAS/NAH.SH-Dienst ist nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.",
-      "no_stops": "Für diese Suche wurde keine Haltestelle gefunden. Bitte einen kürzeren oder leicht anderen Suchbegriff verwenden.",
-      "duplicate_stop": "Diese Haltestelle ist bereits eingerichtet.",
-      "city_required": "Eine Stadt ist erforderlich.",
-      "stop_required": "Ein Haltestellen-Suchbegriff ist erforderlich.",
-      "invalid_stop": "Die ausgewählte Haltestelle ist ungültig. Bitte erneut versuchen."
-    },
     "abort": {
-      "already_configured": "Diese Haltestelle ist bereits eingerichtet.",
-      "invalid_flow": "Der Einrichtungsdialog ist nicht mehr gültig. Bitte neu starten.",
-      "single_instance_allowed": "Es ist nur ein HAFAS-Bus-Monitor-Eintrag erlaubt. Haltestellen im bestehenden Eintrag hinzufügen oder bearbeiten."
+      "single_instance_allowed": "Es ist nur ein HAFAS-Bus-Monitor-Eintrag erlaubt. Haltestellen im bestehenden Eintrag hinzufügen."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "HAFAS Bus Monitor Optionen",
-        "menu_options": {
-          "settings": "Abfrage- und Routing-Einstellungen",
-          "add_stop": "Kachel/Haltestelle hinzufügen",
-          "edit_stop": "Linien / Fußweg bearbeiten",
-          "remove_stop": "Haltestelle entfernen",
-          "save": "Speichern und neu laden",
-          "edit_targets": "Ziele pro Linie bearbeiten"
-        }
-      },
-      "settings": {
-        "title": "Abfrage- und Routing-Einstellungen",
-        "description": "Das Aktualisierungsintervall legt fest, wie oft HAFAS während der aktiven Zeit (06:00–22:00) abgefragt wird. Das Vorschau-Fenster legt fest, wie weit in die Zukunft Abfragen gehen. Ein optionaler Ferien-Sensor pausiert die Abfrage, solange er an ist.",
+        "title": "HAFAS Bus Monitor Einstellungen",
+        "description": "Die Abfrage läuft nur zwischen 06:00 und 22:00. Ein optionaler Ferien-Sensor pausiert die Abfrage, solange er an ist.",
         "data": {
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
           "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
         }
-      },
-      "add_stop": {
-        "title": "Haltestelle hinzufügen",
-        "description": "Stadt und Suchbegriff eingeben, anschließend die richtige HAFAS-Haltestelle auswählen.",
-        "data": {
-          "city": "Stadt",
-          "stop_query": "Haltestelle (Suchbegriff)",
-          "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
-        }
-      },
-      "select_stop": {
-        "title": "Haltestelle auswählen",
-        "description": "{count} mögliche Haltestellen für \"{query}\" gefunden. Bitte die richtige auswählen.",
-        "data": {
-          "stop": "Haltestelle"
-        }
-      },
-      "edit_stop": {
-        "title": "Haltestelle bearbeiten",
-        "description": "Haltestelle auswählen, deren Linienfilter oder Fußweg geändert werden soll.",
-        "data": {
-          "stop": "Haltestelle"
-        }
-      },
-      "edit_stop_form": {
-        "title": "{stop} bearbeiten",
-        "description": "Linienfilter oder Fußweg dieser Haltestelle ändern.",
-        "data": {
-          "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
-        }
-      },
-      "remove_stop": {
-        "title": "Haltestelle entfernen",
-        "description": "Haltestelle zum Entfernen auswählen. Mindestens eine Haltestelle muss bestehen bleiben.",
-        "data": {
-          "stop": "Haltestelle"
-        }
-      },
-      "targets": {
-        "title": "Ziele auswählen",
-        "description": "Wähle die Ziele für Linie {line} an {stop}. Keine Auswahl = alle Ziele. Du kannst pro Linie ein oder mehrere Ziele auswählen.",
-        "data": {
-          "targets": "Ziele"
-        }
-      },
-      "edit_targets": {
-        "title": "Ziele pro Linie bearbeiten",
-        "description": "Haltestelle auswählen, deren Ziel-Filter geändert werden soll.",
-        "data": {
-          "stop": "Haltestelle"
-        }
       }
-    },
-    "error": {
-      "cannot_connect": "Der HAFAS/NAH.SH-Dienst ist nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.",
-      "no_stops": "Für diese Suche wurde keine Haltestelle gefunden. Bitte einen kürzeren oder leicht anderen Suchbegriff verwenden.",
-      "duplicate_stop": "Diese Haltestelle ist bereits eingerichtet.",
-      "city_required": "Eine Stadt ist erforderlich.",
-      "stop_required": "Ein Haltestellen-Suchbegriff ist erforderlich.",
-      "invalid_stop": "Die ausgewählte Haltestelle ist ungültig. Bitte erneut versuchen."
-    },
-    "abort": {
-      "invalid_flow": "Der Einrichtungsdialog ist nicht mehr gültig. Bitte neu starten.",
-      "already_configured": "Diese Haltestelle ist bereits eingerichtet."
+    }
+  },
+  "config_subentries": {
+    "stop": {
+      "entry_type": "Haltestelle / Kachel",
+      "initiate_flow": {
+        "user": "Haltestelle hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Stadt auswählen",
+          "description": "Stadt für die Haltestellensuche eingeben.",
+          "data": {
+            "city": "Stadt"
+          }
+        },
+        "stop": {
+          "title": "Haltestelle auswählen",
+          "description": "Haltestelle in {city} suchen.",
+          "data": {
+            "stop_query": "Haltestelle (Suchbegriff)"
+          }
+        },
+        "select_stop": {
+          "title": "Haltestelle auswählen",
+          "description": "{count} Haltestellen für \"{query}\" gefunden. Bitte die richtige auswählen.",
+          "data": {
+            "stop": "Haltestelle"
+          }
+        },
+        "lines": {
+          "title": "Busse auswählen",
+          "description": "Bevorzugte Linien für {stop} kommagetrennt eingeben. Leer lassen = alle Linien.",
+          "data": {
+            "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)"
+          }
+        },
+        "targets": {
+          "title": "Ziele auswählen",
+          "description": "Linie {line} an {stop}. Ein oder mehrere Ziele auswählen; keine Auswahl = alle Ziele.",
+          "data": {
+            "targets": "Ziele"
+          }
+        },
+        "walking": {
+          "title": "Fußweg",
+          "description": "Fußweg zu {stop}. Gewählte Linien: {lines}.",
+          "data": {
+            "walking_minutes": "Fußweg (Minuten)"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Der HAFAS/NAH.SH-Dienst ist nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.",
+        "no_stops": "Für diese Suche wurde keine Haltestelle gefunden. Bitte einen kürzeren oder leicht anderen Suchbegriff verwenden.",
+        "invalid_stop": "Die ausgewählte Haltestelle ist ungültig. Bitte erneut versuchen.",
+        "city_required": "Eine Stadt ist erforderlich.",
+        "stop_required": "Ein Haltestellen-Suchbegriff ist erforderlich.",
+        "already_configured": "Diese Haltestelle ist bereits eingerichtet."
+      },
+      "abort": {
+        "already_configured": "Diese Haltestelle ist bereits eingerichtet."
+      }
     }
   },
   "services": {

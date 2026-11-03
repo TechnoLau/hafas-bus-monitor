@@ -23,7 +23,7 @@ Die Integration beantwortet zwei Fragen:
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
 - **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
 - **Optionaler Ferien-Sensor**: bei `on` wird die Abfrage pausiert (`Ferien`)
-- **Options-Flow** zum Hinzufügen/Entfernen/Bearbeiten von Kacheln, Linien, Zielen und Einstellungen
+- **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry
 - **Service** `hafas_bus_monitor.refresh`
 - **Keine externen Python-Abhängigkeiten** (nutzt `aiohttp` aus Home Assistant)
 
@@ -72,7 +72,7 @@ Danach Home Assistant neu starten und die Integration über die UI hinzufügen.
 
 ### Voraussetzungen
 
-- Home Assistant **2024.6** oder neuer
+- Home Assistant **2025.4** oder neuer
 - Internetzugang zu `nahsh.hafas.cloud`
 - Kein API-Key erforderlich
 
@@ -80,30 +80,33 @@ Danach Home Assistant neu starten und die Integration über die UI hinzufügen.
 
 ## Einrichtung
 
-Beim ersten Einrichten fragt die Integration eine **Kachel/Haltestelle** ab:
+### 1. Integration anlegen
+
+Beim ersten Hinzufügen wird **noch keine Haltestelle** abgefragt. Es entsteht nur der zentrale HAFAS-Bus-Monitor-Eintrag mit globalen Einstellungen:
 
 | Feld | Bedeutung | Beispiel |
 |---|---|---|
-| **Stadt** | Stadt für die Haltestellensuche | `Kiel` |
-| **Haltestelle (Suchbegriff)** | Name oder Teilname | `Hospitalstraße` |
-| **Bevorzugte Linien** | Kommagetrennt; leer = alle Linien | `61, 62` |
-| **Fußweg zu dieser Haltestelle** | Minuten vom Startpunkt bis zum Steig | `3` |
 | **Vorschau-Fenster** | Wie weit HAFAS in die Zukunft sucht | `60` Minuten |
 | **Aktualisierungsintervall** | Polling-Intervall (Minimum 30 s) | `30` Sekunden |
 | **Schnellste-Verbindung-Sensor** | Routing-Sensor anlegen | `an` |
 | **Ferien-Sensor (optional)** | `binary_sensor`/`input_boolean`, `on` = Ferien | `input_boolean.schulferien` |
 
-Bei mehreren Treffern erscheint eine Haltestellen-Auswahlliste.
+Nach dem Anlegen erscheint die Integration unter **Einstellungen → Geräte & Dienste**. Dort gibt es den Button **Hinzufügen** für Haltestellen/Kacheln. Damit lassen sich beliebig viele Entitäten anlegen – eine pro Kachel.
 
-### Ziele pro Linie auswählen
+### 2. Haltestelle/Kachel hinzufügen
 
-Nach der Haltestellenauswahl fragt die Integration für **jede konfigurierte Linie** die Ziele der nächsten 12 Stunden ab. Dann erscheint pro Linie ein Auswahlschritt:
+Der Button **Hinzufügen** öffnet den schrittweisen Dialog:
 
-- Ein oder mehrere Ziele auswählen → nur diese Ziele werden angezeigt.
-- **Nichts auswählen** → alle Ziele dieser Linie werden angezeigt.
-- Wird in den nächsten 12 Stunden kein Ziel gefunden, wird der Schritt übersprungen; die Linie zeigt dann alle Ziele.
+1. **Stadt auswählen** – z. B. `Kiel`
+2. **Haltestelle** – Suchbegriff, z. B. `Hospitalstraße`; bei mehreren Treffern folgt eine Auswahl
+3. **Busse** – eine oder mehrere Linien, z. B. `61, 62`
+4. **Ziel pro Bus** – für jede Linie werden die HAFAS-Ziele der nächsten 12 Stunden angezeigt:
+   - ein oder mehrere Ziele auswählen
+   - **keine Auswahl** = alle Ziele dieser Linie
+   - wird kein Ziel gefunden, entfällt der Schritt
+5. **Fußweg** – Minuten bis zum Steig; danach wird die Kachel angelegt
 
-Die Auswahl wird pro Linie gespeichert, z. B.:
+Die Ziele werden pro Linie gespeichert, z. B.:
 
 ```yaml
 line_targets:
@@ -111,26 +114,22 @@ line_targets:
   "62": ["Russee"]
 ```
 
-### Weitere Kacheln
+### 3. Weitere Kacheln
 
-Nach der ersten Haltestelle kann direkt eine weitere hinzugefügt werden, z. B. `Kunsthalle` mit einem anderen Fußweg. Später geht das über den Options-Flow.
+Den Button **Hinzufügen** einfach erneut drücken. Jede Haltestelle wird eine eigene Sensor-Entität/Kachel, z. B.:
 
-> **Ein Eintrag für alle Kacheln:** Die Integration ist als ein zentraler Eintrag ausgelegt (`single_config_entry`). Jede Haltestelle wird eine eigene Sensor-Entität/Kachel. Der Routing-Sensor vergleicht alle Kacheln.
+- `sensor.hafas_hospitalstrasse`
+- `sensor.hafas_kunsthalle`
+
+Der Routing-Sensor `sensor.hafas_schnellste_verbindung` vergleicht alle Kacheln.
+
+### 4. Bearbeiten und Löschen
+
+Jede Kachel ist ein eigener **Config-Subentry** und kann auf der Integrationsseite gelöscht und neu angelegt werden. Die globalen Einstellungen (Intervall, Vorschau, Routing, Ferien-Sensor) erreichst du über **Konfigurieren**.
 
 Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es ist **kein YAML in `configuration.yaml`** erforderlich; die YAML-Beispiele hier betreffen nur Dashboard und Automationen.
 
-### Spätere Änderungen
-
-**Einstellungen → Geräte & Dienste → HAFAS Bus Monitor → Konfigurieren**:
-
-- Abfrage- und Routing-Einstellungen ändern
-- Kachel/Haltestelle hinzufügen
-- Linien / Fußweg bearbeiten
-- **Ziele pro Linie bearbeiten**
-- Haltestelle entfernen
-- **Speichern und neu laden**
-
-Mindestens eine Haltestelle muss bestehen bleiben.
+> **Hinweis:** Durch die Subentries wird Home Assistant **2025.4** oder neuer benötigt. Ein zentraler Eintrag verwaltet alle Kacheln (`single_config_entry`).
 
 ---
 
@@ -535,7 +534,7 @@ Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-
 
 - In den nächsten 12 Stunden fährt die Linie nicht oder HAFAS liefert keine Ziele.
 - Der Auswahlschritt wird dann übersprungen; die Linie zeigt alle Ziele.
-- Später über **Konfigurieren → Ziele pro Linie bearbeiten** erneut versuchen.
+- Später die Kachel auf der Integrationsseite bearbeiten oder löschen und neu hinzufügen.
 
 ### Falsche Entität / ID
 
@@ -546,7 +545,7 @@ Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-
 ### „Diese Haltestelle ist bereits eingerichtet“
 
 - Jede Haltestelle darf pro Eintrag nur einmal vorkommen.
-- Für eine weitere Haltestelle den Options-Flow verwenden.
+- Für eine weitere Haltestelle den Button **Hinzufügen** auf der Integrationsseite verwenden.
 
 ### HAFAS-Endpunkt hat sich geändert
 
@@ -558,7 +557,7 @@ Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-
 - Standard: 30 Sekunden, nur 06:00–22:00, optional Ferienpause.
 - Bei zwei Haltestellen sind das bis zu vier HAFAS-Anfragen pro Minute.
 - Die API ist ein öffentlicher Dienst. Bei 429/Fehlern wird der Sensor `unavailable`; das nächste Intervall versucht es erneut.
-- Wer es ruhiger braucht, kann das Intervall im Options-Flow auf 60–300 Sekunden erhöhen.
+- Wer es ruhiger braucht, kann das Intervall unter **Konfigurieren** auf 60–300 Sekunden erhöhen.
 
 ---
 
@@ -595,8 +594,8 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v2.0.1
-git push origin v2.0.1
+git tag v3.0.1
+git push origin v3.0.1
 ```
 
 Die GitHub-Actions-Workflows **hassfest** und **HACS Validation** prüfen Pushes und Pull Requests automatisch.

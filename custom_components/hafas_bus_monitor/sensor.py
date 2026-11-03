@@ -43,6 +43,7 @@ from .const import (
     CONF_STOP_ID,
     CONF_STOP_NAME,
     CONF_STOPS,
+    CONF_SUBENTRY_ID,
     CONF_WALKING_MINUTES,
     DOMAIN,
     MAX_DEPARTURES,
@@ -64,14 +65,20 @@ async def async_setup_entry(
     coordinator: HafasDataUpdateCoordinator = runtime["coordinator"]
     config: dict[str, Any] = runtime["config"]
 
-    entities: list[SensorEntity] = [
-        HafasStopSensor(coordinator, entry, config, stop)
-        for stop in config.get(CONF_STOPS, [])
-    ]
-    if config.get(CONF_ROUTING_ENABLED, True):
-        entities.append(HafasRoutingSensor(coordinator, entry, config))
+    stops = list(config.get(CONF_STOPS, []))
+    if not stops:
+        return
 
-    async_add_entities(entities)
+    for stop in stops:
+        entity = HafasStopSensor(coordinator, entry, config, stop)
+        subentry_id = stop.get(CONF_SUBENTRY_ID)
+        if subentry_id:
+            async_add_entities([entity], config_subentry_id=str(subentry_id))
+        else:
+            async_add_entities([entity])
+
+    if config.get(CONF_ROUTING_ENABLED, True):
+        async_add_entities([HafasRoutingSensor(coordinator, entry, config)])
 
 
 def _pause_label(reason: str | None) -> str | None:
@@ -137,13 +144,22 @@ class _HafasBaseSensor(CoordinatorEntity[HafasDataUpdateCoordinator], SensorEnti
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information shared by all entities of this entry."""
+        """Return device information for this entity."""
         city = str(self._config.get(CONF_CITY) or "").strip()
+        subentry_id = getattr(self, "_subentry_id", None)
+        identifier = (
+            f"{self._entry.entry_id}_{subentry_id}"
+            if subentry_id
+            else self._entry.entry_id
+        )
+        model = f"Busabfahrten {city}".strip()
+        if subentry_id:
+            model = f"{model} · {getattr(self, '_short_name', 'Haltestelle')}"
         return DeviceInfo(
-            identifiers={(DOMAIN, self._entry.entry_id)},
+            identifiers={(DOMAIN, identifier)},
             name="HAFAS",
             manufacturer="NAH.SH / HAFAS",
-            model=f"Busabfahrten {city}".strip(),
+            model=model,
             sw_version=VERSION,
             configuration_url="https://www.nah.sh/",
         )
@@ -163,6 +179,7 @@ class HafasStopSensor(_HafasBaseSensor):
     ) -> None:
         super().__init__(coordinator, entry, config)
         self._stop = stop
+        self._subentry_id = stop.get(CONF_SUBENTRY_ID)
         self._short_name = short_stop_name(
             str(stop.get(CONF_STOP_NAME) or ""),
             str(stop.get("city") or config.get(CONF_CITY) or ""),

@@ -125,7 +125,13 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         now = dt_util.now(ZoneInfo(HAFAS_TIMEZONE))
         stops = self.stops
         if not stops:
-            raise UpdateFailed("No stops configured")
+            return {
+                "stops": {},
+                "errors": {},
+                "fetched_at": now,
+                "paused": None,
+                "no_stops": True,
+            }
 
         pause_reason = self._pause_reason(now)
         if pause_reason:

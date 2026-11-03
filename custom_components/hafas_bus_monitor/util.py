@@ -19,6 +19,7 @@ from .const import (
     CONF_STOP_LID,
     CONF_STOP_NAME,
     CONF_STOPS,
+    CONF_SUBENTRY_ID,
     CONF_UPDATE_INTERVAL,
     CONF_WALKING_MINUTES,
     DEFAULT_CITY,
@@ -32,6 +33,7 @@ from .const import (
     MIN_SCAN_MINUTES,
     MIN_UPDATE_INTERVAL,
     MIN_WALKING_MINUTES,
+    SUBENTRY_TYPE_STOP,
 )
 
 _LINE_SPLIT_RE = re.compile(r"[,;/\s]+")
@@ -208,6 +210,28 @@ def normalize_stop(stop: dict[str, Any], default_city: str) -> dict[str, Any]:
             MAX_WALKING_MINUTES,
         ),
     }
+
+
+def stops_from_subentries(subentries: Any, default_city: str) -> list[dict[str, Any]]:
+    """Convert config subentries of type ``stop`` into normalized stops."""
+    stops: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for subentry in subentries or []:
+        if getattr(subentry, "subentry_type", None) != SUBENTRY_TYPE_STOP:
+            continue
+        stop = normalize_stop(dict(subentry.data), default_city)
+        if (
+            not stop[CONF_STOP_ID]
+            or not stop[CONF_STOP_LID]
+            or not stop[CONF_STOP_NAME]
+        ):
+            continue
+        if stop[CONF_STOP_ID] in seen:
+            continue
+        seen.add(stop[CONF_STOP_ID])
+        stop[CONF_SUBENTRY_ID] = subentry.subentry_id
+        stops.append(stop)
+    return stops
 
 
 def merged_config(
