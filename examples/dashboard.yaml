@@ -18,6 +18,17 @@ cards:
       {% endif %}
 
   - type: markdown
+    title: Nächste Haltestelle (GPS)
+    content: |
+      **{{ states('sensor.hafas_naechste_haltestelle') }}**
+
+      {% set nearest = state_attr('sensor.hafas_naechste_haltestelle', 'departures') or [] %}
+      Entfernung: {{ state_attr('sensor.hafas_naechste_haltestelle', 'distance_m') }} m
+      {% for dep in nearest[:5] %}
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}**
+      {% endfor %}
+
+  - type: markdown
     title: Busse ab Hospitalstraße
     content: |
       {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}

@@ -21,6 +21,7 @@ from .const import (
     ATTR_CITY,
     ATTR_DEPARTURE_COUNT,
     ATTR_DEPARTURES,
+    ATTR_DISTANCE_M,
     ATTR_ERROR,
     ATTR_LAST_UPDATE,
     ATTR_LINE_COLORS,
@@ -37,11 +38,14 @@ from .const import (
     ATTR_UNREACHABLE_DEPARTURES,
     ATTR_WALKING_MINUTES,
     CONF_CITY,
+    CONF_DEVICE_TRACKER,
     CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_ROUTING_ENABLED,
     CONF_SCAN_MINUTES,
     CONF_STOP_ID,
+    CONF_STOP_LAT,
+    CONF_STOP_LON,
     CONF_STOP_NAME,
     CONF_STOPS,
     CONF_SUBENTRY_ID,
@@ -55,7 +59,7 @@ from .const import (
 )
 from .coordinator import HafasDataUpdateCoordinator
 from .routing import RoutingResult, evaluate_routing
-from .util import line_color, short_stop_name
+from .util import haversine_m, line_color, short_stop_name
 
 
 async def async_setup_entry(
@@ -82,6 +86,8 @@ async def async_setup_entry(
 
     if config.get(CONF_ROUTING_ENABLED, True):
         async_add_entities([HafasRoutingSensor(coordinator, entry, config)])
+    if config.get(CONF_DEVICE_TRACKER):
+        async_add_entities([HafasNearestStopSensor(coordinator, entry, config)])
 
 
 def _pause_label(reason: str | None) -> str | None:
@@ -181,6 +187,8 @@ class HafasStopSensor(_HafasBaseSensor):
         self._attr_unique_id = (
             f"{entry.entry_id}_{stop.get(CONF_STOP_ID, 'stop')}_departures"
         )
+        self._last_next_trip: str | None = None
+        self._last_next_minutes: int | None = None
 
     @property
     def device_info(self):
@@ -227,16 +235,47 @@ class HafasStopSensor(_HafasBaseSensor):
 
     @property
     def native_value(self) -> str | None:
-        """Return the tile text: line, destination and departure time."""
+        """Return the tile text: line, destination and departure time.
+
+        Within the same trip the minute countdown never increases.  HAFAS
+        real-time corrections can move a departure a minute or two later;
+        without this guard the tile would visibly jump backwards.
+        """
         if self._pause_label is not None:
+            self._last_next_trip = None
+            self._last_next_minutes = None
             return self._pause_label
+
         payloads = self._departure_payloads
+        next_payload = None
         for payload in payloads:
             if payload["reachable"] and not payload["cancelled"]:
-                return f"{payload['line_destination']} * {payload['time_text']}"
-        if self._stop_data is None:
-            return None
-        return "Keine erreichbare Abfahrt"
+                next_payload = payload
+                break
+
+        if next_payload is None:
+            self._last_next_trip = None
+            self._last_next_minutes = None
+            if self._stop_data is None:
+                return None
+            return "Keine erreichbare Abfahrt"
+
+        trip_key = str(
+            next_payload.get("trip_id")
+            or f"{next_payload['line']}|{next_payload['departure_time']}"
+        )
+        actual_minutes = int(next_payload["minutes_until_departure"])
+        display_minutes = actual_minutes
+        if trip_key == self._last_next_trip and self._last_next_minutes is not None:
+            display_minutes = min(actual_minutes, self._last_next_minutes)
+        self._last_next_trip = trip_key
+        self._last_next_minutes = display_minutes
+
+        if display_minutes < DISPLAY_MINUTES_THRESHOLD:
+            time_text = f"in {display_minutes} min"
+        else:
+            time_text = next_payload["time_text"]
+        return f"{next_payload['line_destination']} * {time_text}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -380,6 +419,153 @@ class HafasRoutingSensor(_HafasBaseSensor):
                 }
                 for stop in stops
             ],
+            ATTR_LAST_UPDATE: (
+                self.coordinator.data.get("fetched_at").isoformat()
+                if self.coordinator.data and self.coordinator.data.get("fetched_at")
+                else None
+            ),
+            ATTR_PAUSED_REASON: self._pause_reason,
+            ATTR_ACTIVE_HOURS: ACTIVE_HOURS_TEXT,
+            "paused": self._pause_reason is not None,
+        }
+
+
+class HafasNearestStopSensor(_HafasBaseSensor):
+    """Show departures of the configured stop nearest to the phone GPS."""
+
+    _attr_name = "Nächste Haltestelle"
+    _attr_icon = "mdi:map-marker-radius"
+
+    def __init__(
+        self,
+        coordinator: HafasDataUpdateCoordinator,
+        entry: ConfigEntry,
+        config: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator, entry, config)
+        self._attr_unique_id = f"{entry.entry_id}_nearest_stop"
+        self._last_next_trip: str | None = None
+        self._last_next_minutes: int | None = None
+
+    @property
+    def suggested_object_id(self) -> str:
+        """Return the historical hafas_naechste_haltestelle entity id."""
+        return "hafas_naechste_haltestelle"
+
+    @property
+    def _tracker_position(self) -> tuple[float, float] | None:
+        """Return latitude/longitude from the configured tracker/person."""
+        tracker = self._config.get(CONF_DEVICE_TRACKER)
+        if not tracker:
+            return None
+        state = self.hass.states.get(str(tracker))
+        if state is None:
+            return None
+        try:
+            latitude = float(state.attributes["latitude"])
+            longitude = float(state.attributes["longitude"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        return latitude, longitude
+
+    @property
+    def _nearest_stop(self) -> tuple[dict[str, Any], float] | None:
+        """Return the nearest configured stop and distance in meters."""
+        position = self._tracker_position
+        if position is None:
+            return None
+        latitude, longitude = position
+        nearest: tuple[dict[str, Any], float] | None = None
+        for stop in self._config.get(CONF_STOPS, []):
+            stop_lat = stop.get(CONF_STOP_LAT)
+            stop_lon = stop.get(CONF_STOP_LON)
+            if stop_lat is None or stop_lon is None:
+                continue
+            distance = haversine_m(
+                latitude,
+                longitude,
+                float(stop_lat),
+                float(stop_lon),
+            )
+            if nearest is None or distance < nearest[1]:
+                nearest = (stop, distance)
+        return nearest
+
+    @property
+    def _nearest_payloads(self) -> tuple[list[dict[str, Any]], str | None]:
+        """Return reachable departures and the stop name for the nearest stop."""
+        nearest = self._nearest_stop
+        if nearest is None:
+            return [], None
+        stop, _distance = nearest
+        data = self.coordinator.stop_data(str(stop.get(CONF_STOP_ID)))
+        if data is None:
+            return [], str(stop.get(CONF_STOP_NAME) or "")
+        walking = max(0, int(stop.get(CONF_WALKING_MINUTES) or 0))
+        payloads = [
+            _departure_payload(
+                departure,
+                data.fetched_at,
+                walking,
+                stop_name=str(stop.get(CONF_STOP_NAME) or ""),
+            )
+            for departure in data.departures
+        ]
+        reachable = [
+            payload
+            for payload in payloads
+            if payload["reachable"] and not payload["cancelled"]
+        ]
+        return reachable, str(stop.get(CONF_STOP_NAME) or "")
+
+    @property
+    def native_value(self) -> str | None:
+        """Return next departure at the nearest configured stop."""
+        if self._pause_label is not None:
+            return self._pause_label
+        if self._tracker_position is None:
+            return "Keine GPS-Position"
+        nearest = self._nearest_stop
+        if nearest is None:
+            return "Keine Koordinaten"
+        stop, _distance = nearest
+        short = short_stop_name(
+            str(stop.get(CONF_STOP_NAME) or ""),
+            str(stop.get(CONF_CITY) or ""),
+        )
+        payloads, _ = self._nearest_payloads
+        if payloads:
+            first = payloads[0]
+            return f"{short}: {first['line_destination']} * {first['time_text']}"
+        if self.coordinator.stop_data(str(stop.get(CONF_STOP_ID))) is None:
+            return f"{short}: Keine Daten"
+        return f"{short}: Keine erreichbare Abfahrt"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the nearest stop, distance and full departure data."""
+        nearest = self._nearest_stop
+        stop = nearest[0] if nearest else None
+        distance = round(nearest[1]) if nearest else None
+        payloads, _ = self._nearest_payloads
+        next_departure = payloads[0] if payloads else None
+        return {
+            ATTR_STOP: stop.get(CONF_STOP_NAME) if stop else None,
+            ATTR_STOP_ID: stop.get(CONF_STOP_ID) if stop else None,
+            ATTR_DISTANCE_M: distance,
+            ATTR_WALKING_MINUTES: (
+                int(stop.get(CONF_WALKING_MINUTES) or 0) if stop else None
+            ),
+            "device_tracker": self._config.get(CONF_DEVICE_TRACKER),
+            ATTR_DEPARTURES: payloads,
+            ATTR_DEPARTURE_COUNT: len(payloads),
+            ATTR_NEXT_DEPARTURE: next_departure,
+            ATTR_MINUTES_UNTIL_DEPARTURE: (
+                next_departure["minutes_until_departure"] if next_departure else None
+            ),
+            ATTR_LINE_COLORS: {
+                payload["line"]: payload["line_color"] for payload in payloads
+            },
             ATTR_LAST_UPDATE: (
                 self.coordinator.data.get("fetched_at").isoformat()
                 if self.coordinator.data and self.coordinator.data.get("fetched_at")

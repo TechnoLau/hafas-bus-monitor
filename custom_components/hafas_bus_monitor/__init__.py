@@ -14,14 +14,17 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .api import HafasClient
+from .api import HafasClient, HafasError
 from .const import (
     CONF_CITY,
+    CONF_DEVICE_TRACKER,
     CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_STOP_CITY,
     CONF_STOP_ID,
+    CONF_STOP_LAT,
     CONF_STOP_LID,
+    CONF_STOP_LON,
     CONF_STOP_NAME,
     CONF_STOPS,
     CONF_WALKING_MINUTES,
@@ -86,6 +89,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config = _config_for_entry(entry)
 
     client = HafasClient(async_get_clientsession(hass))
+    if config.get(CONF_DEVICE_TRACKER):
+        await _resolve_missing_coordinates(client, config.get(CONF_STOPS) or [])
     coordinator = HafasDataUpdateCoordinator(hass, entry, client, config)
 
     # An entry without stops is valid: the user adds stops with the + button
@@ -101,6 +106,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
+
+
+async def _resolve_missing_coordinates(client: HafasClient, stops: list[dict]) -> None:
+    """Fill missing stop coordinates once per setup for the GPS sensor."""
+    for stop in stops:
+        if stop.get(CONF_STOP_LAT) is not None and stop.get(CONF_STOP_LON) is not None:
+            continue
+        try:
+            matches = await client.search_stops(
+                str(stop.get(CONF_STOP_NAME) or ""),
+                city=str(stop.get(CONF_CITY) or ""),
+                limit=5,
+            )
+        except HafasError as err:
+            _LOGGER.debug("Could not resolve coordinates for %s: %s", stop, err)
+            continue
+        for match in matches:
+            if match.stop_id == stop.get(CONF_STOP_ID):
+                stop[CONF_STOP_LAT] = match.latitude
+                stop[CONF_STOP_LON] = match.longitude
+                break
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

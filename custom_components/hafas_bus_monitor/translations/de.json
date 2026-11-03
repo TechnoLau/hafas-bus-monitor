@@ -8,7 +8,8 @@
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
-          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
+          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)",
+          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)"
         }
       }
     },
@@ -25,7 +26,8 @@
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
-          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
+          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)",
+          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)"
         }
       }
     }

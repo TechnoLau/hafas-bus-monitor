@@ -10,6 +10,7 @@ from typing import Any, Final
 from .const import (
     CONF_CITY,
     CONF_DESTINATION_FILTER,
+    CONF_DEVICE_TRACKER,
     CONF_HOLIDAY_ENTITY,
     CONF_LINE_TARGETS,
     CONF_LINES,
@@ -17,7 +18,9 @@ from .const import (
     CONF_SCAN_MINUTES,
     CONF_STOP_CITY,
     CONF_STOP_ID,
+    CONF_STOP_LAT,
     CONF_STOP_LID,
+    CONF_STOP_LON,
     CONF_STOP_NAME,
     CONF_STOPS,
     CONF_SUBENTRY_ID,
@@ -206,6 +209,27 @@ def short_stop_name(name: str, city: str | None = None) -> str:
     return cleaned
 
 
+def _as_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the distance between two coordinates in meters."""
+    from math import asin, cos, radians, sin, sqrt
+
+    earth_radius = 6_371_000.0
+    d_lat = radians(lat2 - lat1)
+    d_lon = radians(lon2 - lon1)
+    a = (
+        sin(d_lat / 2) ** 2
+        + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lon / 2) ** 2
+    )
+    return 2 * earth_radius * asin(sqrt(a))
+
+
 def _as_int(value: Any, default: int) -> int:
     try:
         return int(value)
@@ -233,6 +257,8 @@ def normalize_stop(stop: dict[str, Any], default_city: str) -> dict[str, Any]:
         CONF_STOP_LID: str(stop.get(CONF_STOP_LID) or ""),
         CONF_STOP_NAME: str(stop.get(CONF_STOP_NAME) or ""),
         CONF_STOP_CITY: str(stop.get(CONF_STOP_CITY) or default_city),
+        CONF_STOP_LAT: _as_float(stop.get(CONF_STOP_LAT)),
+        CONF_STOP_LON: _as_float(stop.get(CONF_STOP_LON)),
         CONF_LINES: lines,
         CONF_LINE_TARGETS: line_targets,
         CONF_WALKING_MINUTES: _clamp(
@@ -281,6 +307,7 @@ def merged_config(
         CONF_ROUTING_ENABLED: DEFAULT_ROUTING_ENABLED,
         CONF_STOPS: [],
         CONF_HOLIDAY_ENTITY: None,
+        CONF_DEVICE_TRACKER: None,
     }
     config.update(entry_data or {})
     config.update(entry_options or {})
@@ -320,4 +347,6 @@ def merged_config(
     )
     holiday_entity = str(config.get(CONF_HOLIDAY_ENTITY) or "").strip()
     config[CONF_HOLIDAY_ENTITY] = holiday_entity or None
+    device_tracker = str(config.get(CONF_DEVICE_TRACKER) or "").strip()
+    config[CONF_DEVICE_TRACKER] = device_tracker or None
     return config

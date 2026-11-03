@@ -22,6 +22,7 @@ Die Integration beantwortet zwei Fragen:
 - **Nur erreichbare Abfahrten** im Dashboard: Abfahrten, für die der Fußweg nicht mehr reicht, werden aus `departures` herausgefiltert
 - **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
+- **GPS-Sensor „Nächste Haltestelle“** – findet die nächste eingerichtete Haltestelle per Handy-Standort
 - **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
 - **Ferienmodus-Switch** `switch.hafas_ferienmodus` und optionaler Ferien-Sensor; bei aktiv pausiert die Abfrage (`Ferien`)
 - **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry und editierbar
@@ -91,6 +92,7 @@ Beim ersten Hinzufügen wird **noch keine Haltestelle** abgefragt. Es entsteht n
 | **Aktualisierungsintervall** | Polling-Intervall (Minimum 30 s) | `30` Sekunden |
 | **Schnellste-Verbindung-Sensor** | Routing-Sensor anlegen | `an` |
 | **Ferien-Sensor (optional)** | `binary_sensor`/`input_boolean`, `on` = Ferien | `input_boolean.schulferien` |
+| **Handy-/Geräte-Tracker (optional)** | `device_tracker`/`person` mit GPS-Koordinaten | `device_tracker.handy` |
 | **Ferienmodus-Switch** | separat schaltbar, pausiert ebenfalls | `switch.hafas_ferienmodus` |
 
 Nach dem Anlegen erscheint die Integration unter **Einstellungen → Geräte & Dienste**. Dort gibt es den Button **Hinzufügen** für Haltestellen/Kacheln. Damit lassen sich beliebig viele Entitäten anlegen – eine pro Kachel.
@@ -132,6 +134,27 @@ Jede Kachel ist ein eigener **Config-Subentry** und kann auf der Integrationssei
 Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es ist **kein YAML in `configuration.yaml`** erforderlich; die YAML-Beispiele hier betreffen nur Dashboard und Automationen.
 
 > **Hinweis:** Durch die Subentries wird Home Assistant **2025.4** oder neuer benötigt. Ein zentraler Eintrag verwaltet alle Kacheln (`single_config_entry`).
+
+### 5. Nächste Haltestelle per GPS (optional)
+
+In den globalen Einstellungen kann ein `device_tracker` oder eine `person`-Entität mit GPS-Koordinaten ausgewählt werden. Dann legt die Integration automatisch an:
+
+```text
+sensor.hafas_naechste_haltestelle
+```
+
+Dieser Sensor:
+
+- ermittelt aus den GPS-Koordinaten die **nächste bereits eingerichtete Haltestelle**
+- zeigt deren nächste erreichbare Abfahrt, z. B.:
+  ```text
+  Hospitalstraße: 61 | Mettenhof * in 4 min
+  ```
+- liefert `distance_m`, `stop`, `walking_minutes`, `departures` und `next_departure` als Attribute
+- ignoriert Haltestellen, die nicht als Kachel eingerichtet sind
+- zeigt `Keine GPS-Position`, wenn der Tracker keine Koordinaten liefert
+
+Der Sensor wird bei jeder Aktualisierung neu berechnet; die normale 30-Sekunden-Aktualisierung genügt also auch für Standortwechsel.
 
 ---
 
@@ -176,6 +199,7 @@ Die Entity-IDs werden aus dem Haltestellennamen abgeleitet (Stadtpräfix wird en
 | Haltestellen-Sensor/Kachel | `sensor.hafas_kunsthalle` |
 | Routing-Sensor | `sensor.hafas_schnellste_verbindung` |
 | Ferienmodus | `switch.hafas_ferienmodus` |
+| Nächste Haltestelle per GPS | `sensor.hafas_naechste_haltestelle` |
 
 ### 1. Haltestellen-Sensor (Kachel)
 
@@ -375,6 +399,17 @@ cards:
       {% else %}
       Keine erreichbare Verbindung im Vorschau-Fenster.
       {% endif %}
+
+  - type: markdown
+    title: Nächste Haltestelle (GPS)
+    content: |
+      **{{ states('sensor.hafas_naechste_haltestelle') }}**
+
+      {% set nearest = state_attr('sensor.hafas_naechste_haltestelle', 'departures') or [] %}
+      Entfernung: {{ state_attr('sensor.hafas_naechste_haltestelle', 'distance_m') }} m
+      {% for dep in nearest[:5] %}
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}**
+      {% endfor %}
 
   - type: markdown
     title: Busse ab Kunsthalle
@@ -634,7 +669,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.2.1
+git tag v3.3.1
 git push origin v3.0.1
 ```
 
