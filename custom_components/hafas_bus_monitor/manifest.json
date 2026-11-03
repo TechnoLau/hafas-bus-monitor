@@ -1,6 +1,10 @@
 {
   "domain": "hafas_bus_monitor",
   "name": "HAFAS Bus Monitor",
+  "after_dependencies": [
+    "http",
+    "frontend"
+  ],
   "codeowners": [
     "@TechnoLau"
   ],
