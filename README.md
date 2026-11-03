@@ -226,6 +226,8 @@ Ab 20 Minuten Restzeit:
 61 | Mettenhof · 15:22
 ```
 
+Der State zeigt immer die **früheste Abfahrt über alle gewählten Linien**, auch wenn der Fußweg für genau diese Abfahrt nicht mehr reicht. Ob sie erreichbar ist, steht in `next_departure.reachable`; die Liste `departures` enthält weiterhin nur erreichbare Abfahrten.
+
 Der Entity-Name ist nur der Haltestellenname, z. B. **Hospitalstraße**. Die Kachel zeigt damit Haltestelle (Name), Linie, Ziel und Abfahrtszeit.
 
 Weitere Zustände:
@@ -387,6 +389,22 @@ content: |
   {% else %}
   Keine erreichbare Abfahrt im Vorschau-Fenster.
   {% endif %}
+```
+
+### Große Abfahrt, kleine Haltestelle
+
+Die Integration bringt eine eigene Karte mit. Die Abfahrt steht groß in einer Zeile, der Haltestellenname klein darunter:
+
+```yaml
+type: custom:hafas-departure-card
+entity: sensor.hafas_hospitalstrasse
+```
+
+Die Karte wird beim Start automatisch als Ressource registriert. Nach einem Update den Browser einmal neu laden. Für den GPS-Sensor funktioniert sie genauso:
+
+```yaml
+type: custom:hafas-departure-card
+entity: sensor.hafas_naechste_haltestelle
 ```
 
 ### Kombinierte Ansicht mit Routing
@@ -678,7 +696,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.6
+git tag v3.3.7
 git push origin v3.0.1
 ```
 

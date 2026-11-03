@@ -17,6 +17,9 @@ cards:
       Keine erreichbare Verbindung im Vorschau-Fenster.
       {% endif %}
 
+  - type: custom:hafas-departure-card
+    entity: sensor.hafas_hospitalstrasse
+
   - type: markdown
     title: Nächste Haltestelle (GPS)
     content: |

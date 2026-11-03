@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from types import MappingProxyType
 
 import voluptuous as vol
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
-from homeassistant.const import Platform
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -33,6 +36,7 @@ from .const import (
     DOMAIN,
     SERVICE_REFRESH,
     SUBENTRY_TYPE_STOP,
+    VERSION,
 )
 from .coordinator import HafasDataUpdateCoordinator
 from .util import merged_config, stops_from_subentries
@@ -42,6 +46,36 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
+CARD_URL = "/hafas_bus_monitor/hafas-card.js"
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Register the bundled Lovelace card once."""
+    data = hass.data.setdefault(DOMAIN, {})
+    if data.get("_card_registered"):
+        return
+    path = Path(__file__).parent / "frontend" / "hafas-card.js"
+    if not data.get("_card_static"):
+        try:
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(CARD_URL, str(path), False)]
+            )
+            data["_card_static"] = True
+        except Exception:
+            _LOGGER.debug("Could not register HAFAS card static path", exc_info=True)
+    try:
+        add_extra_js_url(hass, f"{CARD_URL}?v={VERSION}")
+        data["_card_registered"] = True
+    except Exception:
+        _LOGGER.debug("Could not register HAFAS Lovelace card", exc_info=True)
+        if not data.get("_card_retry"):
+            data["_card_retry"] = True
+
+            async def _retry(_event) -> None:
+                data.pop("_card_retry", None)
+                await _async_register_card(hass)
+
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _retry)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

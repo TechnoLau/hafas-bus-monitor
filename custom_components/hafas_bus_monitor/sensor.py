@@ -218,7 +218,7 @@ class HafasStopSensor(_HafasBaseSensor):
         data = self._stop_data
         if data is None:
             return []
-        return [
+        payloads = [
             _departure_payload(
                 departure,
                 data.fetched_at,
@@ -227,6 +227,8 @@ class HafasStopSensor(_HafasBaseSensor):
             )
             for departure in data.departures
         ]
+        payloads.sort(key=lambda payload: payload["minutes_until_departure"])
+        return payloads
 
     @property
     def available(self) -> bool:
@@ -251,7 +253,7 @@ class HafasStopSensor(_HafasBaseSensor):
         payloads = self._departure_payloads
         next_payload = None
         for payload in payloads:
-            if payload["reachable"] and not payload["cancelled"]:
+            if not payload["cancelled"]:
                 next_payload = payload
                 break
 
@@ -260,7 +262,7 @@ class HafasStopSensor(_HafasBaseSensor):
             self._last_next_minutes = None
             if self._stop_data is None:
                 return None
-            return "Keine erreichbare Abfahrt"
+            return "Keine Abfahrt"
 
         trip_key = str(
             next_payload.get("trip_id")
@@ -289,7 +291,9 @@ class HafasStopSensor(_HafasBaseSensor):
             for payload in payloads
             if payload["reachable"] and not payload["cancelled"]
         ]
-        next_departure = all_reachable[0] if all_reachable else None
+        all_cancelled = [payload for payload in payloads if not payload["cancelled"]]
+        next_departure = all_cancelled[0] if all_cancelled else None
+        next_reachable_departure = all_reachable[0] if all_reachable else None
         reachable = all_reachable[:MAX_DEPARTURES]
         unreachable = [
             payload
@@ -333,6 +337,7 @@ class HafasStopSensor(_HafasBaseSensor):
             ATTR_ALL_DEPARTURES: all_departures,
             ATTR_DEPARTURE_COUNT: len(reachable),
             ATTR_NEXT_DEPARTURE: next_departure,
+            "next_reachable_departure": next_reachable_departure,
             ATTR_MINUTES_UNTIL_DEPARTURE: (
                 next_departure["minutes_until_departure"] if next_departure else None
             ),
@@ -602,11 +607,7 @@ class HafasNearestStopSensor(_HafasBaseSensor):
             )
             for departure in data.departures
         ]
-        reachable = [
-            payload
-            for payload in payloads
-            if payload["reachable"] and not payload["cancelled"]
-        ]
+        reachable = [payload for payload in payloads if not payload["cancelled"]]
         return reachable, str(stop.get(CONF_STOP_NAME) or "")
 
     @property
