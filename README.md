@@ -152,7 +152,10 @@ Dieser Sensor:
   ```
 - liefert `distance_m`, `stop`, `walking_minutes`, `departures` und `next_departure` als Attribute
 - ignoriert Haltestellen, die nicht als Kachel eingerichtet sind
-- zeigt `Keine GPS-Position`, wenn der Tracker keine Koordinaten liefert
+- zeigt `Tracker nicht gefunden`, wenn die Entität fehlt
+- zeigt `Keine GPS-Koordinaten`, wenn der Tracker keine `latitude`/`longitude`-Attribute liefert
+- nutzt bei `state == home` ohne GPS-Attribute die Koordinaten von `zone.home` als Fallback
+- liefert `tracker_state` und `position_source` als Diagnose-Attribute
 
 Der Sensor wird bei jeder Aktualisierung neu berechnet; die normale 30-Sekunden-Aktualisierung genügt also auch für Standortwechsel.
 
@@ -669,7 +672,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.3
+git tag v3.3.4
 git push origin v3.0.1
 ```
 

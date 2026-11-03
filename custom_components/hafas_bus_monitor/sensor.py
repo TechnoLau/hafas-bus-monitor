@@ -453,12 +453,13 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         return "hafas_naechste_haltestelle"
 
     @property
-    def _tracker_position(self) -> tuple[float, float] | None:
-        """Return latitude/longitude from the configured tracker/person."""
+    def _tracker_state(self):
+        """Return the configured tracker state, if present."""
         tracker = self._config.get(CONF_DEVICE_TRACKER)
-        if not tracker:
-            return None
-        state = self.hass.states.get(str(tracker))
+        return self.hass.states.get(str(tracker)) if tracker else None
+
+    def _coordinates_from_state(self, state) -> tuple[float, float] | None:
+        """Extract valid coordinates from a state object."""
         if state is None:
             return None
         try:
@@ -466,7 +467,29 @@ class HafasNearestStopSensor(_HafasBaseSensor):
             longitude = float(state.attributes["longitude"])
         except (KeyError, TypeError, ValueError):
             return None
+        if latitude == 0 and longitude == 0:
+            return None
         return latitude, longitude
+
+    @property
+    def _position(self) -> tuple[float, float, str] | None:
+        """Return coordinates and their source (tracker or home zone)."""
+        tracker_state = self._tracker_state
+        coordinates = self._coordinates_from_state(tracker_state)
+        if coordinates is not None:
+            return coordinates[0], coordinates[1], "tracker"
+        if tracker_state is not None and tracker_state.state == "home":
+            home_state = self.hass.states.get("zone.home")
+            home_coordinates = self._coordinates_from_state(home_state)
+            if home_coordinates is not None:
+                return home_coordinates[0], home_coordinates[1], "home_zone"
+        return None
+
+    @property
+    def _tracker_position(self) -> tuple[float, float] | None:
+        """Return latitude/longitude from the configured tracker/person."""
+        position = self._position
+        return (position[0], position[1]) if position else None
 
     @property
     def _nearest_stop(self) -> tuple[dict[str, Any], float] | None:
@@ -523,8 +546,10 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         """Return next departure at the nearest configured stop."""
         if self._pause_label is not None:
             return self._pause_label
+        if self._tracker_state is None:
+            return "Tracker nicht gefunden"
         if self._tracker_position is None:
-            return "Keine GPS-Position"
+            return "Keine GPS-Koordinaten"
         nearest = self._nearest_stop
         if nearest is None:
             return "Keine Koordinaten"
@@ -557,6 +582,10 @@ class HafasNearestStopSensor(_HafasBaseSensor):
                 int(stop.get(CONF_WALKING_MINUTES) or 0) if stop else None
             ),
             "device_tracker": self._config.get(CONF_DEVICE_TRACKER),
+            "tracker_state": (
+                self._tracker_state.state if self._tracker_state else None
+            ),
+            "position_source": (self._position[2] if self._position else None),
             ATTR_DEPARTURES: payloads,
             ATTR_DEPARTURE_COUNT: len(payloads),
             ATTR_NEXT_DEPARTURE: next_departure,

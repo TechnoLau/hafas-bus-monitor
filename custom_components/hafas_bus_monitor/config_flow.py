@@ -99,6 +99,15 @@ def _stop_label(index: int, stop: HafasStop) -> dict[str, str]:
     return {"value": str(index), "label": f"{stop.name} ({stop.stop_id})"}
 
 
+class OptionalEntitySelector(selector.EntitySelector):
+    """Entity selector that accepts an empty value to clear the option."""
+
+    def __call__(self, data: Any) -> str | None:
+        if data is None or data == "":
+            return None
+        return super().__call__(data)
+
+
 def _optional_entity_key(key: str, value: Any) -> vol.Marker:
     """Return an optional entity field with the current value suggested."""
     if value:
@@ -124,12 +133,12 @@ def _global_schema(settings: dict[str, Any]) -> vol.Schema:
             ): selector.BooleanSelector(),
             _optional_entity_key(
                 CONF_HOLIDAY_ENTITY, settings.get(CONF_HOLIDAY_ENTITY)
-            ): selector.EntitySelector(
+            ): OptionalEntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
             ),
             _optional_entity_key(
                 CONF_DEVICE_TRACKER, settings.get(CONF_DEVICE_TRACKER)
-            ): selector.EntitySelector(
+            ): OptionalEntitySelector(
                 selector.EntitySelectorConfig(domain=["device_tracker", "person"])
             ),
         }
