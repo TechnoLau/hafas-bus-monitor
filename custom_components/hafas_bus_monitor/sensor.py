@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -39,6 +40,7 @@ from .const import (
     ATTR_WALKING_MINUTES,
     CONF_CITY,
     CONF_DEVICE_TRACKER,
+    CONF_GEOCODED_SENSOR,
     CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_ROUTING_ENABLED,
@@ -86,7 +88,7 @@ async def async_setup_entry(
 
     if config.get(CONF_ROUTING_ENABLED, True):
         async_add_entities([HafasRoutingSensor(coordinator, entry, config)])
-    if config.get(CONF_DEVICE_TRACKER):
+    if config.get(CONF_DEVICE_TRACKER) or config.get(CONF_GEOCODED_SENSOR):
         async_add_entities([HafasNearestStopSensor(coordinator, entry, config)])
 
 
@@ -458,6 +460,45 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         tracker = self._config.get(CONF_DEVICE_TRACKER)
         return self.hass.states.get(str(tracker)) if tracker else None
 
+    @property
+    def _geocoded_state(self):
+        """Return the configured geocoded-location sensor state."""
+        sensor = self._config.get(CONF_GEOCODED_SENSOR)
+        return self.hass.states.get(str(sensor)) if sensor else None
+
+    def _parse_location(self, value: Any) -> tuple[float, float] | None:
+        """Parse the Location attribute used by companion geocoded sensors."""
+        if value is None:
+            return None
+        parsed: Any = value
+        if isinstance(value, str):
+            text = value.strip()
+            try:
+                parsed = json.loads(text)
+            except (TypeError, ValueError):
+                parsed = text.strip("[]() ")
+                parts = [part.strip() for part in parsed.split(",")]
+                if len(parts) < 2:
+                    return None
+                parsed = parts[:2]
+        if isinstance(parsed, dict):
+            latitude = parsed.get("latitude") or parsed.get("lat")
+            longitude = parsed.get("longitude") or parsed.get("lon")
+        elif isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
+            latitude, longitude = parsed[0], parsed[1]
+        else:
+            return None
+        try:
+            lat = float(latitude)
+            lon = float(longitude)
+        except (TypeError, ValueError):
+            return None
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return None
+        if lat == 0 and lon == 0:
+            return None
+        return lat, lon
+
     def _coordinates_from_state(self, state) -> tuple[float, float] | None:
         """Extract valid coordinates from a state object."""
         if state is None:
@@ -466,7 +507,10 @@ class HafasNearestStopSensor(_HafasBaseSensor):
             latitude = float(state.attributes["latitude"])
             longitude = float(state.attributes["longitude"])
         except (KeyError, TypeError, ValueError):
-            return None
+            coordinates = self._parse_location(
+                state.attributes.get("Location") or state.attributes.get("location")
+            )
+            return coordinates
         if latitude == 0 and longitude == 0:
             return None
         return latitude, longitude
@@ -494,6 +538,10 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         coordinates = self._coordinates_from_state(tracker_state)
         if coordinates is not None:
             return coordinates[0], coordinates[1], "tracker"
+
+        geocoded_coordinates = self._coordinates_from_state(self._geocoded_state)
+        if geocoded_coordinates is not None:
+            return geocoded_coordinates[0], geocoded_coordinates[1], "geocoded"
 
         zone = self._zone_for_state(tracker_state)
         zone_coordinates = self._coordinates_from_state(zone)
@@ -566,9 +614,26 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         """Return next departure at the nearest configured stop."""
         if self._pause_label is not None:
             return self._pause_label
-        if self._tracker_state is None:
-            return "Tracker nicht gefunden"
         if self._tracker_position is None:
+            tracker_state = self._tracker_state
+            geocoded_state = self._geocoded_state
+            tracker_configured = self._config.get(CONF_DEVICE_TRACKER)
+            geocoded_configured = self._config.get(CONF_GEOCODED_SENSOR)
+            if tracker_configured and tracker_state is None and not geocoded_configured:
+                return "Tracker nicht gefunden"
+            if (
+                geocoded_configured
+                and geocoded_state is None
+                and not tracker_configured
+            ):
+                return "Geocoded-Sensor nicht gefunden"
+            if (
+                tracker_configured
+                and tracker_state is None
+                and geocoded_configured
+                and geocoded_state is None
+            ):
+                return "GPS-Quelle nicht gefunden"
             return "Keine GPS-Koordinaten"
         nearest = self._nearest_stop
         if nearest is None:
@@ -602,8 +667,12 @@ class HafasNearestStopSensor(_HafasBaseSensor):
                 int(stop.get(CONF_WALKING_MINUTES) or 0) if stop else None
             ),
             "device_tracker": self._config.get(CONF_DEVICE_TRACKER),
+            "geocoded_sensor": self._config.get(CONF_GEOCODED_SENSOR),
             "tracker_state": (
                 self._tracker_state.state if self._tracker_state else None
+            ),
+            "geocoded_state": (
+                self._geocoded_state.state if self._geocoded_state else None
             ),
             "position_source": (self._position[2] if self._position else None),
             "zone": (

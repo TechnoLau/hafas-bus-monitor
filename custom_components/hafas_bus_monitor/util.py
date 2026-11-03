@@ -11,6 +11,7 @@ from .const import (
     CONF_CITY,
     CONF_DESTINATION_FILTER,
     CONF_DEVICE_TRACKER,
+    CONF_GEOCODED_SENSOR,
     CONF_HOLIDAY_ENTITY,
     CONF_LINE_TARGETS,
     CONF_LINES,
@@ -308,6 +309,7 @@ def merged_config(
         CONF_STOPS: [],
         CONF_HOLIDAY_ENTITY: None,
         CONF_DEVICE_TRACKER: None,
+        CONF_GEOCODED_SENSOR: None,
     }
     config.update(entry_data or {})
     config.update(entry_options or {})
@@ -349,4 +351,6 @@ def merged_config(
     config[CONF_HOLIDAY_ENTITY] = holiday_entity or None
     device_tracker = str(config.get(CONF_DEVICE_TRACKER) or "").strip()
     config[CONF_DEVICE_TRACKER] = device_tracker or None
+    geocoded_sensor = str(config.get(CONF_GEOCODED_SENSOR) or "").strip()
+    config[CONF_GEOCODED_SENSOR] = geocoded_sensor or None
     return config

@@ -93,6 +93,7 @@ Beim ersten Hinzufügen wird **noch keine Haltestelle** abgefragt. Es entsteht n
 | **Schnellste-Verbindung-Sensor** | Routing-Sensor anlegen | `an` |
 | **Ferien-Sensor (optional)** | `binary_sensor`/`input_boolean`, `on` = Ferien | `input_boolean.schulferien` |
 | **Handy-/Geräte-Tracker (optional)** | `device_tracker`/`person` mit GPS-Koordinaten | `device_tracker.handy` |
+| **Geocoded-Location-Sensor (optional)** | `sensor.*_geocoded_location` mit `Location`-Attribut | `sensor.handy_geocoded_location` |
 | **Ferienmodus-Switch** | separat schaltbar, pausiert ebenfalls | `switch.hafas_ferienmodus` |
 
 Nach dem Anlegen erscheint die Integration unter **Einstellungen → Geräte & Dienste**. Dort gibt es den Button **Hinzufügen** für Haltestellen/Kacheln. Damit lassen sich beliebig viele Entitäten anlegen – eine pro Kachel.
@@ -137,7 +138,7 @@ Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es is
 
 ### 5. Nächste Haltestelle per GPS (optional)
 
-In den globalen Einstellungen kann ein `device_tracker` oder eine `person`-Entität mit GPS-Koordinaten ausgewählt werden. Dann legt die Integration automatisch an:
+In den globalen Einstellungen kann ein `device_tracker`, eine `person`-Entität oder ein **Geocoded-Location-Sensor** ausgewählt werden. Geocoded-Sensoren liefern die Koordinaten im Attribut `Location` (z. B. `[54.32, 10.14]`). Dann legt die Integration automatisch an:
 
 ```text
 sensor.hafas_naechste_haltestelle
@@ -156,11 +157,13 @@ Dieser Sensor:
 - zeigt `Keine GPS-Koordinaten`, wenn der Tracker keine `latitude`/`longitude`-Attribute liefert
 - nutzt bei Trackern, die nur eine Zone melden (z. B. `home`, `Schule`), die Koordinaten der passenden `zone.*` als Fallback
 - liefert `tracker_state`, `position_source` und `zone` als Diagnose-Attribute
-- `position_source: tracker` = echte GPS-Koordinaten, `zone:zone.schule` = Zonen-Mittelpunkt
+- `position_source: tracker` = echte GPS-Koordinaten
+- `position_source: geocoded` = Koordinaten aus `sensor.*_geocoded_location`
+- `position_source: zone:zone.schule` = Zonen-Mittelpunkt
 
 Der Sensor wird bei jeder Aktualisierung neu berechnet; die normale 30-Sekunden-Aktualisierung genügt also auch für Standortwechsel.
 
-> **Nur Zonen statt GPS:** Wenn der Tracker nur `home`, `not_home` oder einen Zonennamen liefert, kann die Integration nur den Zonen-Mittelpunkt verwenden. Für die exakte nächste Haltestelle in der Home-Assistant-Companion-App die Standortfreigabe auf **genau/immer** stellen oder einen GPS-Logger als `device_tracker` verwenden.
+> **Nur Zonen statt GPS:** Wenn der Tracker nur `home`, `not_home` oder einen Zonennamen liefert, kann die Integration nur den Zonen-Mittelpunkt verwenden. Für die exakte nächste Haltestelle den **Geocoded-Location-Sensor** des Handys auswählen (er hat ein `Location`-Attribut) oder in der Companion-App die Standortfreigabe auf **genau/immer** stellen.
 
 ---
 
@@ -675,7 +678,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.5
+git tag v3.3.6
 git push origin v3.0.1
 ```
 

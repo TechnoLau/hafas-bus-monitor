@@ -18,6 +18,7 @@ from .api import HafasClient, HafasError
 from .const import (
     CONF_CITY,
     CONF_DEVICE_TRACKER,
+    CONF_GEOCODED_SENSOR,
     CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_STOP_CITY,
@@ -89,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config = _config_for_entry(entry)
 
     client = HafasClient(async_get_clientsession(hass))
-    if config.get(CONF_DEVICE_TRACKER):
+    if config.get(CONF_DEVICE_TRACKER) or config.get(CONF_GEOCODED_SENSOR):
         await _resolve_missing_coordinates(client, config.get(CONF_STOPS) or [])
     coordinator = HafasDataUpdateCoordinator(hass, entry, client, config)
 

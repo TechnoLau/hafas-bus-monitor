@@ -9,7 +9,8 @@
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
           "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)",
-          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)"
+          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)",
+          "geocoded_sensor": "Geocoded-Location-Sensor (optional, genauer Handy-Standort)"
         }
       }
     },
@@ -27,7 +28,8 @@
           "update_interval": "Aktualisierungsintervall (Sekunden)",
           "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
           "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)",
-          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)"
+          "device_tracker": "Handy-/Geräte-Tracker für nächste Haltestelle (optional)",
+          "geocoded_sensor": "Geocoded-Location-Sensor (optional, genauer Handy-Standort)"
         }
       }
     }

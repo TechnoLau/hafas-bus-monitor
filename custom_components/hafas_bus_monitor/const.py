@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "hafas_bus_monitor"
 NAME: Final = "HAFAS Bus Monitor"
-VERSION: Final = "3.3.4"
+VERSION: Final = "3.3.5"
 
 # Configuration keys ---------------------------------------------------------
 CONF_CITY: Final = "city"
@@ -19,6 +19,7 @@ CONF_LINE_TARGETS: Final = "line_targets"
 CONF_TARGETS: Final = "targets"
 CONF_HOLIDAY_ENTITY: Final = "holiday_entity"
 CONF_DEVICE_TRACKER: Final = "device_tracker"
+CONF_GEOCODED_SENSOR: Final = "geocoded_sensor"
 CONF_SCAN_MINUTES: Final = "scan_minutes"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_ROUTING_ENABLED: Final = "routing_enabled"
@@ -82,7 +83,7 @@ HAFAS_AUTH: Final = {
 # locally, because HAFAS line IDs differ between deployments.
 HAFAS_BUS_PRODUCT_MASK: Final = 544
 HAFAS_USER_AGENT: Final = (
-    "hafas-bus-monitor-homeassistant/3.3.4 "
+    "hafas-bus-monitor-homeassistant/3.3.5 "
     "(+https://github.com/TechnoLau/hafas-bus-monitor)"
 )
 

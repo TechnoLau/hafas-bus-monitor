@@ -22,6 +22,7 @@ from .api import HafasClient, HafasError, HafasStop
 from .const import (
     CONF_CITY,
     CONF_DEVICE_TRACKER,
+    CONF_GEOCODED_SENSOR,
     CONF_HOLIDAY_ENTITY,
     CONF_LINE_TARGETS,
     CONF_LINES,
@@ -141,6 +142,9 @@ def _global_schema(settings: dict[str, Any]) -> vol.Schema:
             ): OptionalEntitySelector(
                 selector.EntitySelectorConfig(domain=["device_tracker", "person"])
             ),
+            _optional_entity_key(
+                CONF_GEOCODED_SENSOR, settings.get(CONF_GEOCODED_SENSOR)
+            ): OptionalEntitySelector(selector.EntitySelectorConfig(domain=["sensor"])),
         }
     )
 
@@ -169,6 +173,9 @@ def _parse_global(
         ),
         CONF_DEVICE_TRACKER: (
             str(user_input.get(CONF_DEVICE_TRACKER) or "").strip() or None
+        ),
+        CONF_GEOCODED_SENSOR: (
+            str(user_input.get(CONF_GEOCODED_SENSOR) or "").strip() or None
         ),
     }
 
