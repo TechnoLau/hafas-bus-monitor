@@ -29,6 +29,8 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from .const import (
+    DESTINATION_DISCOVERY_MAX_TRIPS,
+    DESTINATION_DISCOVERY_MINUTES,
     HAFAS_AUTH,
     HAFAS_BUS_PRODUCT_MASK,
     HAFAS_CLIENT,
@@ -38,10 +40,10 @@ from .const import (
     HAFAS_TIMEZONE,
     HAFAS_USER_AGENT,
     HAFAS_VERSION,
-    MAX_DEPARTURES,
+    MAX_FETCH_DEPARTURES,
     MAX_LOCATION_RESULTS,
 )
-from .util import line_matches, normalize_lines
+from .util import destination_allowed, line_matches, normalize_lines
 
 _LOGGER = logging.getLogger(__name__)
 _HAFAS_TZ = ZoneInfo(HAFAS_TIMEZONE)
@@ -378,7 +380,8 @@ def parse_station_board_response(
     now: datetime | None = None,
     scan_minutes: int = 60,
     lines: Iterable[str] | None = None,
-    max_departures: int = MAX_DEPARTURES,
+    line_targets: dict[str, list[str]] | None = None,
+    max_departures: int = MAX_FETCH_DEPARTURES,
 ) -> StopDepartures:
     """Parse a ``StationBoard`` response.
 
@@ -491,6 +494,11 @@ def parse_station_board_response(
         departure
         for departure in parsed
         if line_matches(departure.line, preferred_lines)
+        and destination_allowed(
+            departure.line,
+            departure.destination,
+            line_targets,
+        )
     ]
 
     limit = max(1, int(max_departures))
@@ -637,7 +645,9 @@ class HafasClient:
         now: datetime | None = None,
         scan_minutes: int = 60,
         lines: Iterable[str] | None = None,
+        line_targets: dict[str, list[str]] | None = None,
         max_jny: int = 100,
+        max_departures: int = MAX_FETCH_DEPARTURES,
     ) -> StopDepartures:
         """Fetch and parse the next departures at ``stop``."""
         reference = _ensure_aware(now)
@@ -665,4 +675,48 @@ class HafasClient:
             now=reference,
             scan_minutes=scan_minutes,
             lines=lines,
+            line_targets=line_targets,
+            max_departures=max_departures,
         )
+
+    async def get_destinations(
+        self,
+        stop: HafasStop,
+        lines: Iterable[str] | None = None,
+        *,
+        now: datetime | None = None,
+        scan_minutes: int = DESTINATION_DISCOVERY_MINUTES,
+    ) -> dict[str, list[str]]:
+        """Discover the destinations served by each selected line.
+
+        A station board for the next ``scan_minutes`` (default 12 hours) is
+        fetched without a line filter.  The returned mapping uses the line
+        labels from the config entry as keys, so the config flow can ask for a
+        destination filter per line.
+        """
+        selected_lines = normalize_lines(lines)
+        if not selected_lines:
+            return {}
+
+        board = await self.fetch_departures(
+            stop,
+            now=now,
+            scan_minutes=scan_minutes,
+            lines=[],
+            max_jny=DESTINATION_DISCOVERY_MAX_TRIPS,
+            max_departures=DESTINATION_DISCOVERY_MAX_TRIPS,
+        )
+
+        destinations: dict[str, list[str]] = {line: [] for line in selected_lines}
+        for departure in board.departures:
+            for configured_line in selected_lines:
+                if not line_matches(departure.line, [configured_line]):
+                    continue
+                if departure.destination not in destinations[configured_line]:
+                    destinations[configured_line].append(departure.destination)
+                break
+
+        return {
+            line: sorted(values, key=str.casefold)
+            for line, values in destinations.items()
+        }

@@ -74,16 +74,16 @@ def _stops() -> list[dict]:
             "name": "Kiel Hospitalstraße",
             "city": "Kiel",
             "lines": ["61", "62"],
+            "line_targets": {},
             "walking_minutes": 3,
-            "destination_filter": "",
         },
         {
             "id": "kunsthalle",
             "name": "Kiel Kunsthalle",
             "city": "Kiel",
             "lines": ["61", "62"],
+            "line_targets": {},
             "walking_minutes": 6,
-            "destination_filter": "",
         },
     ]
 
@@ -149,40 +149,6 @@ class RoutingTest(unittest.TestCase):
         assert result.best is not None
         self.assertEqual(result.best.minutes_until, 12)
 
-    def test_destination_filter(self) -> None:
-        data = {
-            "hospital": _board(
-                "hospital",
-                "Kiel Hospitalstraße",
-                [
-                    _departure("62", "Projensdorf", 2),
-                    _departure("62", "Russee", 12),
-                ],
-            )
-        }
-        stops = _stops()[:1]
-        stops[0]["destination_filter"] = "Russee"
-        stops[0]["walking_minutes"] = 5
-        result = evaluate_routing(stops, data, NOW)
-        assert result.best is not None
-        self.assertEqual(result.best.destination, "Russee")
-        self.assertEqual(result.best.minutes_until, 12)
-
-    def test_destination_filter_reports_no_match(self) -> None:
-        data = {
-            "hospital": _board(
-                "hospital",
-                "Kiel Hospitalstraße",
-                [_departure("62", "Projensdorf", 12)],
-            )
-        }
-        stops = _stops()[:1]
-        stops[0]["destination_filter"] = "Russee"
-        result = evaluate_routing(stops, data, NOW)
-        self.assertIsNone(result.best)
-        self.assertEqual(result.state, "Keine Verbindung")
-        self.assertEqual(result.options[0]["error"], "no_matching_destination")
-
     def test_no_catchable_departure(self) -> None:
         data = {
             "hospital": _board(
@@ -210,6 +176,21 @@ class RoutingTest(unittest.TestCase):
         result = evaluate_routing(_stops()[:1], data, NOW)
         assert result.best is not None
         self.assertEqual(result.best.minutes_until, 13)
+
+    def test_line_targets_are_exposed(self) -> None:
+        data = {
+            "hospital": _board(
+                "hospital",
+                "Kiel Hospitalstraße",
+                [_departure("61", "Mettenhof", 8)],
+            )
+        }
+        stops = _stops()[:1]
+        stops[0]["line_targets"] = {"61": ["Mettenhof"]}
+        result = evaluate_routing(stops, data, NOW)
+        assert result.best is not None
+        self.assertEqual(result.best.line_targets, {"61": ["Mettenhof"]})
+        self.assertEqual(result.best.as_dict()["line_targets"], {"61": ["Mettenhof"]})
 
     def test_missing_stop_data_is_documented(self) -> None:
         result = evaluate_routing(

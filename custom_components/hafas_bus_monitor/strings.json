@@ -3,16 +3,16 @@
     "step": {
       "user": {
         "title": "HAFAS Bus Monitor",
-        "description": "Configure the first stop. Enter the city and a stop search term (for example \"Kiel\" and \"Hospitalstraße\"). Preferred lines are comma-separated; leave empty to show all lines. The walking time is used by the fastest-connection sensor.",
+        "description": "Configure one tile/stop per entity. Enter city and stop search term (for example \"Kiel\" and \"Hospitalstraße\"). Preferred lines are comma-separated; leave empty to show all lines. After selecting the stop, choose destinations per line. Polling runs every 30 seconds between 06:00 and 22:00; an optional holiday sensor pauses it during school holidays.",
         "data": {
           "city": "City",
           "stop_query": "Stop (search term)",
           "lines": "Preferred lines (comma-separated, empty = all)",
-          "destination_filter": "Destination filter (optional)",
           "walking_minutes": "Walking time to this stop (minutes)",
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
-          "routing_enabled": "Create fastest-connection sensor"
+          "routing_enabled": "Create fastest-connection sensor",
+          "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
       },
       "select_stop": {
@@ -24,20 +24,26 @@
       },
       "add_stop": {
         "title": "Add another stop?",
-        "description": "{count} stop(s) configured: {stops}. Add another stop to compare walking times for the fastest connection.",
+        "description": "{count} tile(s) configured: {stops}. Add another tile/stop to compare walking times for the fastest connection.",
         "data": {
           "add_another": "Add another stop"
         }
       },
       "stop": {
         "title": "Add stop",
-        "description": "Enter the city, search term and line filter for the additional stop.",
+        "description": "Enter city, search term and line filter for the additional tile/stop.",
         "data": {
           "city": "City",
           "stop_query": "Stop (search term)",
           "lines": "Preferred lines (comma-separated, empty = all)",
-          "destination_filter": "Destination filter (optional)",
           "walking_minutes": "Walking time to this stop (minutes)"
+        }
+      },
+      "targets": {
+        "title": "Select destinations",
+        "description": "Select the destinations for line {line} at {stop}. Leave everything unselected to show all destinations. You can select one or more destinations per line.",
+        "data": {
+          "targets": "Destinations"
         }
       }
     },
@@ -61,19 +67,21 @@
         "title": "HAFAS Bus Monitor options",
         "menu_options": {
           "settings": "Polling and routing settings",
-          "add_stop": "Add stop",
+          "add_stop": "Add tile/stop",
           "edit_stop": "Edit lines / walking time",
           "remove_stop": "Remove stop",
-          "save": "Save and reload"
+          "save": "Save and reload",
+          "edit_targets": "Edit destinations per line"
         }
       },
       "settings": {
         "title": "Polling and routing settings",
-        "description": "The update interval controls how often HAFAS is queried. The look-ahead window controls how far into the future departures are requested.",
+        "description": "The update interval controls how often HAFAS is queried while active (06:00–22:00). The look-ahead window controls how far into the future departures are requested. The optional holiday sensor pauses polling while it is on.",
         "data": {
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
-          "routing_enabled": "Create fastest-connection sensor"
+          "routing_enabled": "Create fastest-connection sensor",
+          "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
       },
       "add_stop": {
@@ -83,7 +91,6 @@
           "city": "City",
           "stop_query": "Stop (search term)",
           "lines": "Preferred lines (comma-separated, empty = all)",
-          "destination_filter": "Destination filter (optional)",
           "walking_minutes": "Walking time to this stop (minutes)"
         }
       },
@@ -106,13 +113,26 @@
         "description": "Change the line filter or walking time for this stop.",
         "data": {
           "lines": "Preferred lines (comma-separated, empty = all)",
-          "destination_filter": "Destination filter (optional)",
           "walking_minutes": "Walking time to this stop (minutes)"
         }
       },
       "remove_stop": {
         "title": "Remove stop",
         "description": "Select the stop to remove. At least one stop must remain.",
+        "data": {
+          "stop": "Stop"
+        }
+      },
+      "targets": {
+        "title": "Select destinations",
+        "description": "Select the destinations for line {line} at {stop}. Leave everything unselected to show all destinations. You can select one or more destinations per line.",
+        "data": {
+          "targets": "Destinations"
+        }
+      },
+      "edit_targets": {
+        "title": "Edit destinations",
+        "description": "Select the stop whose destination filter you want to change.",
         "data": {
           "stop": "Stop"
         }
@@ -127,7 +147,8 @@
       "invalid_stop": "The selected stop is invalid. Please try again."
     },
     "abort": {
-      "invalid_flow": "The configuration flow is no longer valid. Please start again."
+      "invalid_flow": "The configuration flow is no longer valid. Please start again.",
+      "already_configured": "This stop is already configured."
     }
   },
   "services": {

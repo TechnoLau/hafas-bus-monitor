@@ -4,24 +4,27 @@ Eine HACS-kompatible Home-Assistant-Custom-Integration für **Busabfahrten auf B
 
 Die Integration beantwortet zwei Fragen:
 
-1. **Wann fährt mein Bus?** – pro Haltestelle, gefiltert nach bevorzugten Linien.
+1. **Wann fährt mein Bus?** – pro Haltestelle/Kachel, gefiltert nach Linien und Zielen.
 2. **Welcher Bus ist nach der Schule der schnellste?** – Vergleich mehrerer Haltestellen inklusive Fußweg.
 
-> **Hinweis:** HAFAS ist ein System des Herstellers HaCon. Die NAH.SH-Schnittstelle ist eine öffentliche Fahrplan-Schnittstelle, keine offiziell dokumentierte, garantierte API. Endpunkte können sich ändern. Die Integration fragt standardmäßig nur alle 60 Sekunden ab; bitte nicht auf wenige Sekunden herunterdrehen.
+> **Hinweis:** HAFAS ist ein System des Herstellers HaCon. Die NAH.SH-Schnittstelle ist eine öffentliche Fahrplan-Schnittstelle, keine offiziell dokumentierte, garantierte API. Endpunkte können sich ändern. Die Integration fragt standardmäßig alle **30 Sekunden** ab, aber nur zwischen **06:00 und 22:00 Uhr** und optional nicht in den Schulferien. Bitte die öffentliche API fair nutzen.
 
 ---
 
 ## Funktionen
 
 - **Haltestellensuche** über Stadt + Suchbegriff (z. B. `Kiel` + `Hospitalstraße`)
-- **Auswahl aus mehreren HAFAS-Treffern** (statt blindem ersten Treffer)
-- **Linienfilter** pro Haltestelle (z. B. `61, 62`); leer = alle Linien
-- **Optionaler Ziel-Filter** pro Haltestelle für das Routing (z. B. `Russee`)
-- **Transparente Abfahrtsattribute**: Linie, Ziel, Abfahrtszeit, Restminuten, Verspätung, Steig
-- **Mehrere Haltestellen** in einem Eintrag
+- **Auswahl aus mehreren HAFAS-Treffern**
+- **Pro Kachel/Haltestelle:** Stadt, Haltestelle, mehrere Linien, Fußweg
+- **Ziele pro Linie auswählen** – die Integration fragt die nächsten 12 Stunden ab und zeigt die tatsächlich angefahrenen Ziele als Auswahl
+- **Kachel-State** zeigt Linie, Ziel und Abfahrtszeit, z. B. `61 → Mettenhof · 15:22 · 4 Min` (der Haltestellenname steht im Entity-Namen)
+- **Nur erreichbare Abfahrten** im Dashboard: Abfahrten, für die der Fußweg nicht mehr reicht, werden aus `departures` herausgefiltert
+- **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
-- **Options-Flow** zum Hinzufügen/Entfernen/Bearbeiten von Haltestellen und Einstellungen
-- **Service** `hafas_bus_monitor.refresh` zum sofortigen Aktualisieren
+- **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
+- **Optionaler Ferien-Sensor**: bei `on` wird die Abfrage pausiert (`Ferien`)
+- **Options-Flow** zum Hinzufügen/Entfernen/Bearbeiten von Kacheln, Linien, Zielen und Einstellungen
+- **Service** `hafas_bus_monitor.refresh`
 - **Keine externen Python-Abhängigkeiten** (nutzt `aiohttp` aus Home Assistant)
 
 ---
@@ -35,7 +38,7 @@ Die Integration beantwortet zwei Fragen:
 | Zeitraum | Schleswig-Holstein, u. a. Kiel, Lübeck, Flensburg, Eutin |
 | Produktfilter | Busse und On-call-Busse (Bitmaske 544) |
 
-Für andere HAFAS-Betreiber müssten `HAFAS_ENDPOINT`, `HAFAS_CLIENT`, `HAFAS_AUTH` und ggf. die Produkt-Bitmaske in [`const.py`](custom_components/hafas_bus_monitor/const.py) angepasst werden. Die Integration ist bewusst generisch aufgebaut, getestet ist der NAH.SH-Endpunkt.
+Für andere HAFAS-Betreiber müssten `HAFAS_ENDPOINT`, `HAFAS_CLIENT`, `HAFAS_AUTH` und ggf. die Produkt-Bitmaske in [`const.py`](custom_components/hafas_bus_monitor/const.py) angepasst werden. Getestet ist der NAH.SH-Endpunkt.
 
 ---
 
@@ -43,11 +46,16 @@ Für andere HAFAS-Betreiber müssten `HAFAS_ENDPOINT`, `HAFAS_CLIENT`, `HAFAS_AU
 
 ### Variante A: HACS (Custom Repository)
 
-1. Repository auf GitHub veröffentlichen (siehe [GitHub-Veröffentlichung](#github-veröffentlichung)).
-2. In Home Assistant **HACS → Integrationen** öffnen.
-3. Oben rechts auf **⋮ → Benutzerdefinierte Repositories** klicken.
-4. Repository-URL eintragen, Kategorie **Integration** wählen, **Hinzufügen**.
-5. Nach `HAFAS Bus Monitor` suchen, installieren.
+1. In Home Assistant **HACS → Integrationen** öffnen.
+2. Oben rechts auf **⋮ → Benutzerdefinierte Repositories** klicken.
+3. URL eintragen:
+
+   ```text
+   https://github.com/TechnoLau/hafas-bus-monitor
+   ```
+
+4. Kategorie **Integration** wählen – **nicht** Dashboard, App oder Frontend.
+5. Nach `HAFAS Bus Monitor` suchen und installieren.
 6. Home Assistant neu starten.
 7. **Einstellungen → Geräte & Dienste → Integration hinzufügen → HAFAS Bus Monitor**.
 
@@ -72,36 +80,86 @@ Danach Home Assistant neu starten und die Integration über die UI hinzufügen.
 
 ## Einrichtung
 
-Beim ersten Einrichten fragt die Integration:
+Beim ersten Einrichten fragt die Integration eine **Kachel/Haltestelle** ab:
 
 | Feld | Bedeutung | Beispiel |
 |---|---|---|
 | **Stadt** | Stadt für die Haltestellensuche | `Kiel` |
 | **Haltestelle (Suchbegriff)** | Name oder Teilname | `Hospitalstraße` |
 | **Bevorzugte Linien** | Kommagetrennt; leer = alle Linien | `61, 62` |
-| **Ziel-Filter (optional)** | Nur für den Routing-Sensor; Teilstring des Ziels | `Russee` |
-| **Fußweg zu dieser Haltestelle** | Minuten von der Schule bis zum Steig | `3` |
+| **Fußweg zu dieser Haltestelle** | Minuten vom Startpunkt bis zum Steig | `3` |
 | **Vorschau-Fenster** | Wie weit HAFAS in die Zukunft sucht | `60` Minuten |
-| **Aktualisierungsintervall** | Polling-Intervall | `60` Sekunden |
+| **Aktualisierungsintervall** | Polling-Intervall (Minimum 30 s) | `30` Sekunden |
 | **Schnellste-Verbindung-Sensor** | Routing-Sensor anlegen | `an` |
+| **Ferien-Sensor (optional)** | `binary_sensor`/`input_boolean`, `on` = Ferien | `input_boolean.schulferien` |
 
-Bei mehreren Treffern erscheint eine Auswahlliste. Nach der ersten Haltestelle kann direkt eine zweite hinzugefügt werden (z. B. `Kunsthalle` mit einem anderen Fußweg).
+Bei mehreren Treffern erscheint eine Haltestellen-Auswahlliste.
 
-> **Ein Eintrag für alle Haltestellen:** Die Integration ist als ein zentraler Eintrag ausgelegt (`single_config_entry`). Alle Haltestellen werden über den Options-Flow verwaltet. Das hält die Entity-IDs stabil und stellt sicher, dass der Routing-Sensor alle Haltestellen vergleicht.
+### Ziele pro Linie auswählen
 
-Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es ist **kein YAML in `configuration.yaml`** erforderlich; die YAML-Beispiele in diesem README betreffen nur Dashboard und Automationen.
+Nach der Haltestellenauswahl fragt die Integration für **jede konfigurierte Linie** die Ziele der nächsten 12 Stunden ab. Dann erscheint pro Linie ein Auswahlschritt:
+
+- Ein oder mehrere Ziele auswählen → nur diese Ziele werden angezeigt.
+- **Nichts auswählen** → alle Ziele dieser Linie werden angezeigt.
+- Wird in den nächsten 12 Stunden kein Ziel gefunden, wird der Schritt übersprungen; die Linie zeigt dann alle Ziele.
+
+Die Auswahl wird pro Linie gespeichert, z. B.:
+
+```yaml
+line_targets:
+  "61": ["Mettenhof"]
+  "62": ["Russee"]
+```
+
+### Weitere Kacheln
+
+Nach der ersten Haltestelle kann direkt eine weitere hinzugefügt werden, z. B. `Kunsthalle` mit einem anderen Fußweg. Später geht das über den Options-Flow.
+
+> **Ein Eintrag für alle Kacheln:** Die Integration ist als ein zentraler Eintrag ausgelegt (`single_config_entry`). Jede Haltestelle wird eine eigene Sensor-Entität/Kachel. Der Routing-Sensor vergleicht alle Kacheln.
+
+Die Einrichtung erfolgt vollständig über die Home-Assistant-Oberfläche. Es ist **kein YAML in `configuration.yaml`** erforderlich; die YAML-Beispiele hier betreffen nur Dashboard und Automationen.
 
 ### Spätere Änderungen
 
-**Einstellungen → Geräte & Dienste → HAFAS Bus Monitor → Konfigurieren** öffnet den Options-Flow:
+**Einstellungen → Geräte & Dienste → HAFAS Bus Monitor → Konfigurieren**:
 
 - Abfrage- und Routing-Einstellungen ändern
-- Haltestelle hinzufügen
-- Linien / Fußweg / Ziel-Filter bearbeiten
+- Kachel/Haltestelle hinzufügen
+- Linien / Fußweg bearbeiten
+- **Ziele pro Linie bearbeiten**
 - Haltestelle entfernen
 - **Speichern und neu laden**
 
 Mindestens eine Haltestelle muss bestehen bleiben.
+
+---
+
+## Aktualisierung, Ruhezeit und Ferien
+
+- Das Polling läuft standardmäßig alle **30 Sekunden**.
+- Es läuft nur zwischen **06:00 und 22:00 Uhr** (Zeitzone `Europe/Berlin`).
+- Außerhalb dieser Zeit zeigt der Sensor `Ruhezeit` und es werden keine HAFAS-Anfragen gesendet.
+- Ist ein **Ferien-Sensor** konfiguriert und steht auf `on`, zeigt der Sensor `Ferien`; es wird nicht abgefragt.
+- Ohne Ferien-Sensor wird auch in den Ferien abgefragt. Die Integration kann Schulferien nicht bundesweit automatisch kennen; dafür einen eigenen `binary_sensor` oder `input_boolean` verwenden.
+
+Beispiel für einen manuellen Helfer:
+
+```yaml
+input_boolean:
+  schulferien:
+    name: Schulferien
+    icon: mdi:school
+```
+
+Diesen Helfer in der Integration als Ferien-Sensor auswählen. Für automatische Ferien kann ein Template-Binary-Sensor auf Basis eines Kalenders verwendet werden:
+
+```yaml
+template:
+  - binary_sensor:
+      - name: Schulferien
+        state: >-
+          {{ is_state('calendar.schulferien', 'on') }}
+```
 
 ---
 
@@ -111,55 +169,77 @@ Die Entity-IDs werden aus dem Haltestellennamen abgeleitet (Stadtpräfix wird en
 
 | Entität | Beispiel |
 |---|---|
-| Haltestellen-Sensor | `sensor.hafas_hospitalstrasse` |
-| Haltestellen-Sensor | `sensor.hafas_kunsthalle` |
+| Haltestellen-Sensor/Kachel | `sensor.hafas_hospitalstrasse` |
+| Haltestellen-Sensor/Kachel | `sensor.hafas_kunsthalle` |
 | Routing-Sensor | `sensor.hafas_schnellste_verbindung` |
 
-### 1. Haltestellen-Sensor
+### 1. Haltestellen-Sensor (Kachel)
 
-**State:** Restminuten bis zur nächsten Abfahrt der gefilterten Linien (ganzzahlig, `min`).  
-Wenn im Vorschau-Fenster keine passende Abfahrt liegt: `unknown`.
+**State:**
+
+```text
+61 → Mettenhof · 15:22 · 4 Min
+```
+
+Der Entity-Name enthält die Haltestelle, z. B. **HAFAS Hospitalstraße**. Die Kachel zeigt damit Haltestelle (Name), Linie, Ziel und Abfahrtszeit.
+
+Weitere Zustände:
+
+| Zustand | Bedeutung |
+|---|---|
+| `Keine erreichbare Abfahrt` | Keine Abfahrt im Vorschau-Fenster, für die der Fußweg reicht |
+| `Ruhezeit` | Außerhalb von 06:00–22:00 Uhr |
+| `Ferien` | Ferien-Sensor ist `on` |
+| `unknown` | Keine Daten, z. B. bei einem Fehler |
 
 **Attribute:**
 
 | Attribut | Inhalt |
 |---|---|
-| `stop` | Vollständiger HAFAS-Haltestellenname |
-| `stop_id` | HAFAS-ID |
-| `city` | Stadt |
-| `lines` | Aktiver Linienfilter (Liste) |
-| `destination_filter` | Optionaler Zielfilter |
+| `stop` / `stop_id` / `city` | Haltestelle und Stadt |
+| `lines` | Linienfilter |
+| `line_targets` | Ziele pro Linie |
 | `walking_minutes` | Fußweg |
 | `scan_minutes` | Vorschau-Fenster |
-| `departures` | **Nur gefilterte Linien**: Liste der Abfahrten (max. 12) |
-| `all_departures` | Alle Busse im Fenster (Transparenz/Debug, max. 12) |
-| `departure_count` | Anzahl in `departures` |
-| `next_departure` | Nächste gefilterte Abfahrt als Objekt |
+| `departures` | **Nur erreichbare** Abfahrten der gewählten Linien/Ziele (max. 8) |
+| `unreachable_departures` | Passende Abfahrten, für die der Fußweg **nicht** reicht |
+| `all_departures` | Alle Busse im Fenster (ungefiltert, Transparenz/Debug, max. 8) |
+| `departure_count` | Anzahl der erreichbaren Abfahrten |
+| `next_departure` | Nächste erreichbare Abfahrt als vollständiges Objekt |
+| `minutes_until_departure` | Minuten bis zur nächsten erreichbaren Abfahrt (für Automationen) |
 | `last_update` | Zeitpunkt des HAFAS-Abrufs (ISO 8601) |
 | `error` | Letzter Fehler dieser Haltestelle, falls vorhanden |
+| `paused_reason` | `holiday` oder `outside_hours` |
+| `active_hours` | `06:00–22:00` |
+| `paused` | `true`/`false` |
 
-Jede Abfahrt in `departures` enthält:
+Jede Abfahrt in `departures`, `unreachable_departures` und `all_departures` enthält:
 
 ```yaml
 line: "61"
 line_name: "Bus 61"
-destination: "Kiel Hbf"
-departure_time: "2026-11-02T13:19:00+01:00"
-departure_time_local: "13:19"
-planned_departure_time: "2026-11-02T13:17:00+01:00"
-planned_departure_time_local: "13:17"
+line_id: "de:NAHSH:01002|61:"
+destination: "Mettenhof"
+departure_time: "2026-11-03T15:22:00+01:00"
+departure_time_local: "15:22"
+planned_departure_time: "2026-11-03T15:20:00+01:00"
+planned_departure_time_local: "15:20"
 delay: 2
 delay_minutes: 2
 delay_seconds: 120
 minutes_until_departure: 4
+walking_minutes: 3
+leave_in_minutes: 1
+reachable: true
 platform: "A"
 cancelled: false
 realtime: true
 trip_id: "..."
 stop_name: "Kiel Hospitalstraße"
+display_short: "61 → Mettenhof · 15:22"
 ```
 
-**Wichtig:** `departures` ist bereits nach den bevorzugten Linien gefiltert. `all_departures` ist nur für Transparenz/Debug gedacht.
+Damit lassen sich eigene Karten, Tabellen oder Automationen bauen. `departures` ist bereits nach **Linie**, **Ziel** und **Fußweg** gefiltert.
 
 ### 2. Routing-Sensor „Schnellste Verbindung“
 
@@ -169,48 +249,58 @@ stop_name: "Kiel Hospitalstraße"
 Linie 61 ab Kunsthalle in 4 Min
 ```
 
-Wenn keine Verbindung gefunden wird:
+Bei Pause:
 
 ```text
-Keine Verbindung
+Ferien
+```
+
+oder:
+
+```text
+Ruhezeit
 ```
 
 **Attribute:**
 
 | Attribut | Inhalt |
 |---|---|
-| `best` | Gewählte Verbindung (siehe unten) |
+| `best` | Gewählte Verbindung |
 | `options` | Alle geprüften Haltestellen mit Ergebnis/Grund |
 | `reason` | `no_departures`, `no_catchable_departure`, ... |
 | `selection_method` | Erklärung der Auswahl |
-| `stops` | Konfigurierte Haltestellen, Fußwege, Linien |
+| `stops` | Konfigurierte Haltestellen, Fußwege, Linien, Ziele |
 | `last_update` | Zeitpunkt des Abrufs |
+| `paused_reason` | `holiday`/`outside_hours` |
+| `active_hours` | `06:00–22:00` |
 
 `best` enthält u. a.:
 
 ```yaml
 line: "61"
-destination: "Kiel Hbf"
+destination: "Mettenhof"
 stop: "Kiel Kunsthalle"
 stop_short: "Kunsthalle"
 walk_minutes: 6
 minutes_until: 4
 leave_in_minutes: 0
-departure_time_local: "13:22"
+departure_time_local: "15:22"
 delay: 0
 platform: "A"
 catchable: true
+line_targets:
+  "61": ["Mettenhof"]
 ```
 
 ### Wie das Routing rechnet
 
-Für jede Haltestelle wird die **früheste Abfahrt** gesucht, die man mit dem konfigurierten Fußweg noch erreichen kann:
+Für jede Haltestelle wird die **früheste Abfahrt** gesucht, die mit dem konfigurierten Fußweg noch erreichbar ist:
 
 ```text
-Abfahrt in Minuten >= Fußweg in Minuten
+Restminuten bis Abfahrt >= Fußweg in Minuten
 ```
 
-Von den erreichbaren Abfahrten gewinnt die **früheste tatsächliche Abfahrtszeit** (Echtzeit, falls vorhanden). Der Fußweg dient also als Ausschlusskriterium: Ein Bus, der in 2 Minuten fährt, man aber 5 Minuten braucht, wird übersprungen. Bei gleicher Abfahrtszeit gewinnt der kürzere Fußweg.
+Von den erreichbaren Abfahrten gewinnt die **früheste tatsächliche Abfahrtszeit** (Echtzeit, falls vorhanden). Bei gleicher Abfahrtszeit gewinnt der kürzere Fußweg.
 
 `leave_in_minutes` sagt, wann man losgehen sollte:
 
@@ -218,26 +308,27 @@ Von den erreichbaren Abfahrten gewinnt die **früheste tatsächliche Abfahrtszei
 leave_in_minutes = max(0, Restminuten bis Abfahrt - Fußweg)
 ```
 
-**Wichtig:** Die Integration kennt keine Fahrzeit bis zum endgültigen Ziel. Sie vergleicht die Abfahrt, nicht die Ankunft. Wenn an einer Haltestelle mehrere Richtungen derselben Linie halten, kann der optionale **Ziel-Filter** (z. B. `Russee`) helfen.
+Die Ziel-Filter pro Linie werden bereits beim HAFAS-Abruf berücksichtigt. Dadurch vergleicht der Routing-Sensor nur Busse, die auch in die gewünschte Richtung fahren.
+
+**Wichtig:** Die Integration kennt keine Fahrzeit bis zum endgültigen Ziel. Sie vergleicht die Abfahrt, nicht die Ankunft.
 
 ---
 
 ## Dashboard-Beispiel (Lovelace Markdown)
 
-Das folgende Beispiel zeigt die gefilterten Linien 61 und 62 inklusive Linienbezeichnung, Ziel, Uhrzeit, Restminuten und Verspätung. Es funktioniert ohne zusätzliche HACS-Karten.
+Das folgende Beispiel zeigt die **erreichbaren** Abfahrten inklusive Linie, Ziel, Uhrzeit, Restminuten, Fußweg und Losgehzeit. Es funktioniert ohne zusätzliche HACS-Karten.
 
 ```yaml
 type: markdown
 title: Busse ab Hospitalstraße
 content: |
-  {% set entity_id = 'sensor.hafas_hospitalstrasse' %}
-  {% set departures = state_attr(entity_id, 'departures') or [] %}
+  {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
   {% if departures %}
   {% for dep in departures[:6] %}
-  - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}{% if dep.cancelled %} · **fällt aus**{% endif %}
+  - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
   {% endfor %}
   {% else %}
-  Keine passenden Abfahrten im Vorschau-Fenster.
+  Keine erreichbare Abfahrt im Vorschau-Fenster.
   {% endif %}
 ```
 
@@ -267,11 +358,25 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:5] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} (+{{ dep.delay }}){% endif %}
+      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min
       {% endfor %}
       {% else %}
-      Keine passenden Abfahrten.
+      Keine erreichbare Abfahrt.
       {% endif %}
+```
+
+### Detailansicht „alle Daten“
+
+`all_departures` enthält alle Busse im Fenster, auch nicht gewählte Linien und nicht erreichbare Abfahrten. `unreachable_departures` enthält nur die passenden Linien/Ziele, für die der Fußweg zu kurz ist.
+
+```yaml
+type: markdown
+title: HAFAS-Detaildaten Hospitalstraße
+content: |
+  {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
+  {% for dep in all %}
+  - {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+  {% endfor %}
 ```
 
 > Passe die Entity-IDs an, falls deine Haltestellen anders heißen. Die ID findest du unter **Einstellungen → Geräte & Dienste → Entitäten**.
@@ -284,10 +389,10 @@ Die Automation prüft nach Schulende automatisch, ob **Hospitalstraße** oder **
 
 ### Voraussetzungen
 
-- Beide Haltestellen sind in **einem** HAFAS-Bus-Monitor-Eintrag konfiguriert.
+- Beide Haltestellen sind im HAFAS-Bus-Monitor-Eintrag konfiguriert.
 - Der Routing-Sensor ist aktiviert.
 - Ein Benachrichtigungsdienst existiert, z. B. `notify.mobile_app_schulkind`.
-- Optional: ein Binary Sensor `binary_sensor.schultag` oder eine Kalender-/Workday-Bedingung.
+- Optional: ein Ferien-Sensor; die Integration pausiert dann selbst.
 
 ### Komplette Automation
 
@@ -307,14 +412,10 @@ condition:
       - wed
       - thu
       - fri
-  # Optional: nur an Schultagen
-  # - condition: state
-  #   entity_id: binary_sensor.schultag
-  #   state: "on"
   - condition: template
     value_template: >-
       {{ states('sensor.hafas_schnellste_verbindung')
-         not in ['unknown', 'unavailable', 'Keine Verbindung'] }}
+         not in ['unknown', 'unavailable', 'Keine Verbindung', 'Ferien', 'Ruhezeit'] }}
 action:
   - service: hafas_bus_monitor.refresh
   - delay: "00:00:03"
@@ -345,12 +446,10 @@ mode: single
 - `13:15:00` durch das tatsächliche Schulende ersetzen.
 - `notify.mobile_app_schulkind` durch den eigenen Notify-Service ersetzen.
 - Für unregelmäßige Schulschlusszeiten einen Kalender-Trigger oder einen Helper (`input_datetime.schulende`) verwenden.
-- `delay: 3` ist optional; es gibt dem Coordinator Zeit, den State nach dem Refresh zu aktualisieren.
-- Wenn du keine Push-Benachrichtigung willst, kann die Automation stattdessen eine Lampe, einen TTS-Ansage oder einen persistenten Hinweis auslösen.
+- `delay: 3` gibt dem Coordinator Zeit, den State nach dem Refresh zu aktualisieren.
+- Die Bedingung schließt `Ferien` und `Ruhezeit` bereits aus.
 
 ### Alternative: Automation nur bei Änderung
-
-Wenn nur dann benachrichtigt werden soll, wenn sich die schnellste Verbindung ändert:
 
 ```yaml
 trigger:
@@ -361,6 +460,10 @@ condition:
     after: "13:00:00"
     before: "13:30:00"
     weekday: [mon, tue, wed, thu, fri]
+  - condition: template
+    value_template: >-
+      {{ states('sensor.hafas_schnellste_verbindung')
+         not in ['unknown', 'unavailable', 'Keine Verbindung', 'Ferien', 'Ruhezeit'] }}
 action:
   - service: notify.mobile_app_schulkind
     data:
@@ -381,7 +484,7 @@ Fordert sofort frische Daten für alle konfigurierten Haltestellen an.
 service: hafas_bus_monitor.refresh
 ```
 
-Der Service hat keine Felder. Der normale Coordinator aktualisiert danach wieder im eingestellten Intervall.
+Der Service hat keine Felder. Außerhalb von 06:00–22:00 bzw. bei Ferien bleibt der Sensor im Pause-Zustand.
 
 ---
 
@@ -389,11 +492,13 @@ Der Service hat keine Felder. Der normale Coordinator aktualisiert danach wieder
 
 1. **LocMatch** löst `Stadt + Haltestelle` in eine HAFAS-Location-ID auf.
 2. **StationBoard** liefert die nächsten Busabfahrten im Vorschau-Fenster.
-3. Die Integration filtert lokal nach den gewünschten Linien.
-4. Echtzeitdaten (`dTimeR`) werden verwendet, falls vorhanden; andernfalls gilt die Planzeit (`dTimeS`).
-5. Verspätung = Echtzeit minus Planzeit.
+3. Beim Einrichten werden für die gewählten Linien die Ziele der nächsten 12 Stunden ermittelt.
+4. Die Integration filtert lokal nach Linien und pro Linie nach Zielen.
+5. Echtzeitdaten (`dTimeR`) werden verwendet, falls vorhanden; andernfalls gilt die Planzeit (`dTimeS`).
+6. Verspätung = Echtzeit minus Planzeit.
+7. Der Sensor berechnet aus Fußweg und Abfahrtszeit, welche Abfahrten erreichbar sind.
 
-Die HAFAS-Antwort wird defensiv geparst: Fehlende Felder, abweichende Plattform-Schreibweisen und Abfahrten nach Mitternacht werden abgefangen.
+Die HAFAS-Antwort wird defensiv geparst: fehlende Felder, abweichende Plattform-Schreibweisen und Abfahrten nach Mitternacht werden abgefangen.
 
 ---
 
@@ -405,42 +510,55 @@ Die HAFAS-Antwort wird defensiv geparst: Fehlende Felder, abweichende Plattform-
 - Stadt prüfen (NAH.SH deckt Schleswig-Holstein ab, nicht ganz Deutschland).
 - Sonderzeichen/ß/ä/ö/ü funktionieren normalerweise; ggf. Schreibweise variieren.
 
-### Sensor ist `unknown`
+### Kachel zeigt `Keine erreichbare Abfahrt`
 
-- Im Vorschau-Fenster fährt keine Linie, die dem Filter entspricht.
-- Linienfilter leeren (alle Linien) oder Vorschau-Fenster erhöhen.
-- Nachts fahren viele Linien nicht.
-- Attribute `all_departures` prüfen: Dort stehen alle Busse, auch wenn der Filter sie ausblendet.
+- Im Vorschau-Fenster fährt keine passende Linie zum gewählten Ziel.
+- Fußweg zu groß: Eine Abfahrt in 2 Minuten ist bei 5 Minuten Fußweg nicht erreichbar.
+- Linien-/Ziel-Filter prüfen; `unreachable_departures` und `all_departures` ansehen.
+- Vorschau-Fenster erhöhen.
 
-### Sensor ist `unavailable`
+### Kachel zeigt `Ruhezeit`
+
+- Es ist vor 06:00 oder nach 22:00 Uhr. Das ist beabsichtigt; es werden keine HAFAS-Anfragen gesendet.
+
+### Kachel zeigt `Ferien`
+
+- Der konfigurierte Ferien-Sensor ist `on`. Die Abfrage ist pausiert.
+
+### Kachel zeigt `unavailable`
 
 - HAFAS-Endpunkt nicht erreichbar, Timeout oder API-Fehler.
 - Logs prüfen: **Einstellungen → System → Protokolle**, nach `hafas_bus_monitor` filtern.
-- Bei nur einer fehlerhaften Haltestelle bleiben die anderen Sensoren verfügbar; die betroffene Haltestelle wird `unavailable`.
+- Bei nur einer fehlerhaften Haltestelle bleiben die anderen Sensoren verfügbar.
+
+### Ziele werden beim Einrichten nicht angeboten
+
+- In den nächsten 12 Stunden fährt die Linie nicht oder HAFAS liefert keine Ziele.
+- Der Auswahlschritt wird dann übersprungen; die Linie zeigt alle Ziele.
+- Später über **Konfigurieren → Ziele pro Linie bearbeiten** erneut versuchen.
 
 ### Falsche Entität / ID
 
 - Entity-IDs werden beim ersten Anlegen aus dem Namen erzeugt.
-- Bereits vergebene IDs werden nicht automatisch umbenannt.
 - Unter **Einstellungen → Geräte & Dienste → Entitäten** umbenennen.
-- Die ID im Dashboard/der Automation entsprechend anpassen.
+- Dashboard/Automation entsprechend anpassen.
 
 ### „Diese Haltestelle ist bereits eingerichtet“
 
 - Jede Haltestelle darf pro Eintrag nur einmal vorkommen.
-- Für eine zweite Haltestelle den Options-Flow verwenden (`Haltestelle hinzufügen`), nicht einen zweiten Eintrag mit derselben primären Haltestelle.
+- Für eine weitere Haltestelle den Options-Flow verwenden.
 
 ### HAFAS-Endpunkt hat sich geändert
 
 - `HAFAS_ENDPOINT` und `HAFAS_FALLBACK_ENDPOINT` in [`const.py`](custom_components/hafas_bus_monitor/const.py) anpassen.
-- Einen GitHub-Issue/PR mit dem neuen Endpunkt anlegen.
-- Die Integration nutzt zuerst den neuen Cloud-Endpunkt und fällt bei Verbindungsfehlern auf den alten `mgate.exe`-Endpunkt zurück.
+- Die Integration nutzt zuerst den Cloud-Endpunkt und fällt bei Verbindungsfehlern auf den alten `mgate.exe`-Endpunkt zurück.
 
 ### Rate Limits / zu viele Anfragen
 
-- Standard: 60 Sekunden, Minimum: 30 Sekunden.
-- Bei zwei Haltestellen sind das zwei HAFAS-Anfragen pro Intervall.
-- Bitte nicht dauerhaft auf 30 Sekunden oder weniger stellen; die API ist ein öffentlicher Dienst.
+- Standard: 30 Sekunden, nur 06:00–22:00, optional Ferienpause.
+- Bei zwei Haltestellen sind das bis zu vier HAFAS-Anfragen pro Minute.
+- Die API ist ein öffentlicher Dienst. Bei 429/Fehlern wird der Sensor `unavailable`; das nächste Intervall versucht es erneut.
+- Wer es ruhiger braucht, kann das Intervall im Options-Flow auf 60–300 Sekunden erhöhen.
 
 ---
 
@@ -448,8 +566,8 @@ Die HAFAS-Antwort wird defensiv geparst: Fehlende Felder, abweichende Plattform-
 
 - Es werden nur Haltestellen-Suchbegriffe und Abfahrtsanfragen an NAH.SH/HAFAS gesendet.
 - Keine API-Keys, keine Standortdaten, keine Benutzerkonten.
-- Die Integration speichert nur Haltestellen-ID, Namen, Linienfilter und Einstellungen in der Home-Assistant-Konfiguration.
-- Bitte die HAFAS-Schnittstelle fair nutzen (angemessenes Polling-Intervall, kein Massenabruf).
+- Die Integration speichert Haltestellen-ID, Namen, Linien-/Ziel-Filter und Einstellungen in der Home-Assistant-Konfiguration.
+- Bitte die HAFAS-Schnittstelle fair nutzen.
 
 ---
 
@@ -477,8 +595,8 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v1.0.1
-git push origin v1.0.1
+git tag v2.0.1
+git push origin v2.0.1
 ```
 
 Die GitHub-Actions-Workflows **hassfest** und **HACS Validation** prüfen Pushes und Pull Requests automatisch.
@@ -500,6 +618,8 @@ hafas-bus-monitor/
 │       ├── util.py
 │       ├── services.yaml
 │       ├── strings.json
+│       ├── brand/
+│       │   └── icon.png
 │       └── translations/
 │           ├── de.json
 │           └── en.json
@@ -510,7 +630,8 @@ hafas-bus-monitor/
 │   ├── __init__.py
 │   ├── loader.py
 │   ├── test_api_parsing.py
-│   └── test_routing.py
+│   ├── test_routing.py
+│   └── test_util.py
 ├── .github/workflows/validate.yml
 ├── hacs.json
 ├── README.md
@@ -531,13 +652,13 @@ pip install aiohttp
 python -m unittest discover -s tests -v
 ```
 
-Ein Live-Test gegen NAH.SH (benötigt Internet):
+Ein Live-Test gegen NAH.SH:
 
 ```bash
 HAFAS_LIVE_TEST=1 python -m unittest tests.test_api_parsing -v
 ```
 
-Die Home-Assistant-spezifischen Module (`config_flow.py`, `sensor.py`, `__init__.py`) werden zusätzlich durch die GitHub-Action **hassfest** und **HACS Validation** geprüft. Vor einem Release:
+Die Home-Assistant-spezifischen Module werden zusätzlich durch die GitHub-Action **hassfest** und **HACS Validation** geprüft. Vor einem Release:
 
 ```bash
 python -m compileall custom_components/hafas_bus_monitor

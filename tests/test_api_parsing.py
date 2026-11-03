@@ -173,17 +173,29 @@ class StationBoardParsingTest(unittest.TestCase):
         )
         self.assertEqual(board.departures, [])
 
-    def test_destination_filter_is_not_applied_in_parser(self) -> None:
-        # The parser only applies the line filter.  Destination filtering is a
-        # routing concern and is tested in test_routing.py.
+    def test_line_target_filter(self) -> None:
         board = parse_station_board_response(
             _departure_payload(),
             self.stop,
             now=NOW,
             scan_minutes=60,
             lines=["61"],
+            line_targets={"61": ["Kiel Hbf"]},
         )
+        self.assertEqual([item.line for item in board.departures], ["61"])
         self.assertEqual(board.departures[0].destination, "Kiel Hbf")
+
+    def test_line_target_without_match_hides_departure(self) -> None:
+        board = parse_station_board_response(
+            _departure_payload(),
+            self.stop,
+            now=NOW,
+            scan_minutes=60,
+            lines=["61"],
+            line_targets={"61": ["Russee"]},
+        )
+        self.assertEqual(board.departures, [])
+        self.assertEqual(len(board.all_departures), 2)
 
     def test_location_response(self) -> None:
         payload = {
@@ -248,6 +260,12 @@ class LiveNahshTest(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(departure.line)
                 self.assertTrue(departure.destination)
                 self.assertGreaterEqual(departure.minutes_until, 0)
+
+            destinations = await client.get_destinations(
+                stops[0], ["61", "62"], scan_minutes=180
+            )
+            self.assertIn("61", destinations)
+            self.assertIn("62", destinations)
 
 
 if __name__ == "__main__":

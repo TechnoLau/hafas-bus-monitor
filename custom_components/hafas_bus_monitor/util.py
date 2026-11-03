@@ -9,6 +9,8 @@ from typing import Any
 from .const import (
     CONF_CITY,
     CONF_DESTINATION_FILTER,
+    CONF_HOLIDAY_ENTITY,
+    CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_ROUTING_ENABLED,
     CONF_SCAN_MINUTES,
@@ -69,6 +71,67 @@ def lines_to_text(lines: Iterable[str] | None) -> str:
     return ", ".join(normalize_lines(lines))
 
 
+def normalize_string_list(value: Iterable[str] | str | None) -> list[str]:
+    """Normalize a list of destination names without splitting spaces."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw_items = [value]
+    else:
+        raw_items = list(value)
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        cleaned = str(item or "").strip()
+        if not cleaned:
+            continue
+        key = cleaned.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(cleaned)
+    return result
+
+
+def normalize_line_targets(value: Any) -> dict[str, list[str]]:
+    """Normalize the per-line destination mapping from an entry.
+
+    HAFAS destination names are kept verbatim so they can be compared with the
+    values returned by the API.  An empty list means "all destinations".
+    """
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, list[str]] = {}
+    for raw_line, raw_targets in value.items():
+        line = str(raw_line or "").strip()
+        if not line:
+            continue
+        result[line] = normalize_string_list(raw_targets)
+    return result
+
+
+def targets_for_line(line: str, line_targets: dict[str, list[str]] | None) -> list[str]:
+    """Return the configured destination filter for a HAFAS line."""
+    for configured_line, targets in (line_targets or {}).items():
+        if line_matches(line, [configured_line]):
+            return list(targets)
+    return []
+
+
+def destination_allowed(
+    line: str,
+    destination: str,
+    line_targets: dict[str, list[str]] | None,
+) -> bool:
+    """Check a departure destination against the per-line target filter."""
+    targets = targets_for_line(line, line_targets)
+    if not targets:
+        return True
+    wanted = str(destination or "").strip().casefold()
+    return any(target.casefold() == wanted for target in targets)
+
+
 def line_matches(line: str, preferred_lines: Iterable[str] | None) -> bool:
     """Check a HAFAS line label against the configured list.
 
@@ -123,13 +186,22 @@ def _clamp(value: int, minimum: int, maximum: int) -> int:
 
 def normalize_stop(stop: dict[str, Any], default_city: str) -> dict[str, Any]:
     """Normalize one stop dictionary from a config entry."""
+    lines = normalize_lines(stop.get(CONF_LINES))
+    line_targets = normalize_line_targets(stop.get(CONF_LINE_TARGETS))
+
+    # Migrate the old single destination filter from v1: apply it to every
+    # configured line.  New entries store line_targets instead.
+    old_filter = str(stop.get(CONF_DESTINATION_FILTER) or "").strip()
+    if not line_targets and old_filter and lines:
+        line_targets = {line: [old_filter] for line in lines}
+
     return {
         CONF_STOP_ID: str(stop.get(CONF_STOP_ID) or stop.get(CONF_STOP_LID) or ""),
         CONF_STOP_LID: str(stop.get(CONF_STOP_LID) or ""),
         CONF_STOP_NAME: str(stop.get(CONF_STOP_NAME) or ""),
         CONF_STOP_CITY: str(stop.get(CONF_STOP_CITY) or default_city),
-        CONF_LINES: normalize_lines(stop.get(CONF_LINES)),
-        CONF_DESTINATION_FILTER: str(stop.get(CONF_DESTINATION_FILTER) or "").strip(),
+        CONF_LINES: lines,
+        CONF_LINE_TARGETS: line_targets,
         CONF_WALKING_MINUTES: _clamp(
             _as_int(stop.get(CONF_WALKING_MINUTES), DEFAULT_WALKING_MINUTES),
             MIN_WALKING_MINUTES,
@@ -153,6 +225,7 @@ def merged_config(
         CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL,
         CONF_ROUTING_ENABLED: DEFAULT_ROUTING_ENABLED,
         CONF_STOPS: [],
+        CONF_HOLIDAY_ENTITY: None,
     }
     config.update(entry_data or {})
     config.update(entry_options or {})
@@ -190,4 +263,6 @@ def merged_config(
     config[CONF_ROUTING_ENABLED] = bool(
         config.get(CONF_ROUTING_ENABLED, DEFAULT_ROUTING_ENABLED)
     )
+    holiday_entity = str(config.get(CONF_HOLIDAY_ENTITY) or "").strip()
+    config[CONF_HOLIDAY_ENTITY] = holiday_entity or None
     return config

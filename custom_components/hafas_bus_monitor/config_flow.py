@@ -20,7 +20,8 @@ from .api import HafasClient, HafasError, HafasStop
 from .const import (
     CONF_ADD_ANOTHER,
     CONF_CITY,
-    CONF_DESTINATION_FILTER,
+    CONF_HOLIDAY_ENTITY,
+    CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_ROUTING_ENABLED,
     CONF_SCAN_MINUTES,
@@ -31,6 +32,7 @@ from .const import (
     CONF_STOP_NAME,
     CONF_STOP_QUERY,
     CONF_STOPS,
+    CONF_TARGETS,
     CONF_UPDATE_INTERVAL,
     CONF_WALKING_MINUTES,
     DEFAULT_CITY,
@@ -48,7 +50,7 @@ from .const import (
     MIN_UPDATE_INTERVAL,
     MIN_WALKING_MINUTES,
 )
-from .util import lines_to_text, merged_config, normalize_lines
+from .util import lines_to_text, merged_config, normalize_lines, normalize_string_list
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,6 +97,14 @@ def _configured_stop_label(index: int, stop: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _optional_entity_selector(domains: list[str]) -> vol.Any:
+    """Allow an empty value or an entity from the given domains."""
+    return vol.Any(
+        vol.In([None, ""]),
+        selector.EntitySelector(selector.EntitySelectorConfig(domain=domains)),
+    )
+
+
 def _int_value(value: Any, default: int) -> int:
     """Convert an optional form value to int."""
     try:
@@ -103,7 +113,144 @@ def _int_value(value: Any, default: int) -> int:
         return default
 
 
-class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
+class _TargetSelectionMixin:
+    """Shared per-line destination selection for config and options flows."""
+
+    _pending: dict[str, Any] | None
+    _pending_candidate: HafasStop | None
+    _line_targets: dict[str, list[str]]
+    _destinations: dict[str, list[str]]
+    _target_queue: list[str]
+    _target_index: int
+    _target_edit_index: int | None
+
+    async def _begin_targets(self) -> ConfigFlowResult:
+        """Discover destinations and start the per-line target steps."""
+        candidate = self._pending_candidate
+        pending = self._pending
+        if candidate is None or pending is None:
+            return self.async_abort(reason="invalid_flow")
+
+        lines = list(pending.get(CONF_LINES) or [])
+        existing_targets: dict[str, list[str]] = {}
+        if self._target_edit_index is not None and 0 <= self._target_edit_index < len(
+            getattr(self, "_stops", [])
+        ):
+            existing_targets = dict(
+                self._stops[self._target_edit_index].get(CONF_LINE_TARGETS) or {}
+            )
+        self._line_targets = {
+            line: list(existing_targets.get(line, [])) for line in lines
+        }
+        self._destinations = {line: [] for line in lines}
+        self._target_queue = []
+        self._target_index = 0
+
+        if lines:
+            client = HafasClient(async_get_clientsession(self.hass))
+            try:
+                destinations = await client.get_destinations(candidate, lines)
+            except HafasError as err:
+                _LOGGER.warning("HAFAS destination discovery failed: %s", err)
+            else:
+                self._destinations = {
+                    line: destinations.get(line, []) for line in lines
+                }
+                self._target_queue = [
+                    line for line in lines if self._destinations[line]
+                ]
+
+        if not self._target_queue:
+            return await self._finish_targets()
+        return await self.async_step_targets()
+
+    async def async_step_targets(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for destination filters one selected line at a time."""
+        if self._target_index >= len(self._target_queue):
+            return await self._finish_targets()
+
+        line = self._target_queue[self._target_index]
+        options = [
+            {"value": destination, "label": destination}
+            for destination in self._destinations.get(line, [])
+        ]
+
+        if user_input is not None:
+            selected = normalize_string_list(user_input.get(CONF_TARGETS))
+            allowed = {
+                destination.casefold(): destination
+                for destination in self._destinations.get(line, [])
+            }
+            self._line_targets[line] = [
+                allowed[item.casefold()]
+                for item in selected
+                if item.casefold() in allowed
+            ]
+            self._target_index += 1
+            return await self.async_step_targets()
+
+        defaults = [
+            target
+            for target in self._line_targets.get(line, [])
+            if target in {item["value"] for item in options}
+        ]
+        return self.async_show_form(
+            step_id="targets",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_TARGETS,
+                        default=defaults,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+            description_placeholders={
+                "line": line,
+                "stop": (
+                    self._pending_candidate.name
+                    if self._pending_candidate is not None
+                    else str((self._pending or {}).get(CONF_STOP_QUERY, ""))
+                ),
+            },
+        )
+
+    async def _finish_targets(self) -> ConfigFlowResult:
+        """Store the stop with its per-line targets and continue."""
+        candidate = self._pending_candidate
+        pending = self._pending
+        targets = {line: list(values) for line, values in self._line_targets.items()}
+        edit_index = self._target_edit_index
+        self._pending_candidate = None
+        self._pending = None
+        self._line_targets = {}
+        self._destinations = {}
+        self._target_queue = []
+        self._target_index = 0
+        self._target_edit_index = None
+        if candidate is None or pending is None:
+            return self.async_abort(reason="invalid_flow")
+        if edit_index is not None:
+            if 0 <= edit_index < len(getattr(self, "_stops", [])):
+                self._stops[edit_index][CONF_LINE_TARGETS] = targets
+            return await self._target_complete()
+        if not self._add_stop(candidate, pending, targets):
+            return self.async_abort(reason="already_configured")
+        return await self._target_complete()
+
+    async def _target_complete(self) -> ConfigFlowResult:
+        """Continue after target selection; implemented by the concrete flow."""
+        raise NotImplementedError
+
+
+class HafasBusMonitorConfigFlow(_TargetSelectionMixin, ConfigFlow, domain=DOMAIN):
     """Initial setup flow."""
 
     VERSION = 1
@@ -115,10 +262,21 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_SCAN_MINUTES: DEFAULT_SCAN_MINUTES,
             CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL,
             CONF_ROUTING_ENABLED: DEFAULT_ROUTING_ENABLED,
+            CONF_HOLIDAY_ENTITY: None,
         }
         self._stops: list[dict[str, Any]] = []
         self._pending: dict[str, Any] | None = None
+        self._pending_candidate: HafasStop | None = None
         self._matches: list[HafasStop] = []
+        self._line_targets: dict[str, list[str]] = {}
+        self._destinations: dict[str, list[str]] = {}
+        self._target_queue: list[str] = []
+        self._target_index = 0
+        self._target_edit_index: int | None = None
+
+    async def _target_complete(self) -> ConfigFlowResult:
+        """Continue with the next stop prompt after targets are selected."""
+        return await self.async_step_add_stop()
 
     @staticmethod
     @callback
@@ -148,10 +306,14 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                     if not matches:
                         errors["base"] = "no_stops"
                     elif len(matches) == 1:
-                        if self._add_stop(matches[0], pending):
-                            self._pending = None
-                            return await self.async_step_add_stop()
-                        errors["base"] = "duplicate_stop"
+                        if any(
+                            stop[CONF_STOP_ID] == matches[0].stop_id
+                            for stop in self._stops
+                        ):
+                            errors["base"] = "duplicate_stop"
+                        else:
+                            self._pending_candidate = matches[0]
+                            return await self._begin_targets()
                     else:
                         self._matches = matches
                         return await self.async_step_select_stop()
@@ -177,11 +339,12 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             except (KeyError, IndexError, TypeError, ValueError):
                 errors["base"] = "invalid_stop"
             else:
-                if self._add_stop(stop, self._pending):
-                    self._pending = None
+                if any(item[CONF_STOP_ID] == stop.stop_id for item in self._stops):
+                    errors["base"] = "duplicate_stop"
+                else:
+                    self._pending_candidate = stop
                     self._matches = []
-                    return await self.async_step_add_stop()
-                errors["base"] = "duplicate_stop"
+                    return await self._begin_targets()
 
         return self.async_show_form(
             step_id="select_stop",
@@ -243,10 +406,14 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                     if not matches:
                         errors["base"] = "no_stops"
                     elif len(matches) == 1:
-                        if self._add_stop(matches[0], pending):
-                            self._pending = None
-                            return await self.async_step_add_stop()
-                        errors["base"] = "duplicate_stop"
+                        if any(
+                            stop[CONF_STOP_ID] == matches[0].stop_id
+                            for stop in self._stops
+                        ):
+                            errors["base"] = "duplicate_stop"
+                        else:
+                            self._pending_candidate = matches[0]
+                            return await self._begin_targets()
                     else:
                         self._matches = matches
                         return await self.async_step_select_stop()
@@ -277,6 +444,9 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_ROUTING_ENABLED: bool(
                 user_input.get(CONF_ROUTING_ENABLED, DEFAULT_ROUTING_ENABLED)
             ),
+            CONF_HOLIDAY_ENTITY: (
+                str(user_input.get(CONF_HOLIDAY_ENTITY) or "").strip() or None
+            ),
         }
         return settings, pending
 
@@ -291,9 +461,6 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_CITY: city,
             CONF_STOP_QUERY: query,
             CONF_LINES: normalize_lines(user_input.get(CONF_LINES)),
-            CONF_DESTINATION_FILTER: str(
-                user_input.get(CONF_DESTINATION_FILTER) or ""
-            ).strip(),
             CONF_WALKING_MINUTES: _int_value(
                 user_input.get(CONF_WALKING_MINUTES), DEFAULT_WALKING_MINUTES
             ),
@@ -312,7 +479,12 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             limit=MAX_LOCATION_RESULTS,
         )
 
-    def _add_stop(self, candidate: HafasStop, pending: dict[str, Any]) -> bool:
+    def _add_stop(
+        self,
+        candidate: HafasStop,
+        pending: dict[str, Any],
+        line_targets: dict[str, list[str]],
+    ) -> bool:
         if any(stop[CONF_STOP_ID] == candidate.stop_id for stop in self._stops):
             return False
         self._stops.append(
@@ -322,7 +494,7 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_STOP_NAME: candidate.name,
                 CONF_STOP_CITY: pending[CONF_CITY],
                 CONF_LINES: list(pending[CONF_LINES]),
-                CONF_DESTINATION_FILTER: pending[CONF_DESTINATION_FILTER],
+                CONF_LINE_TARGETS: dict(line_targets),
                 CONF_WALKING_MINUTES: pending[CONF_WALKING_MINUTES],
             }
         )
@@ -342,6 +514,7 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SCAN_MINUTES: self._settings[CONF_SCAN_MINUTES],
                 CONF_UPDATE_INTERVAL: self._settings[CONF_UPDATE_INTERVAL],
                 CONF_ROUTING_ENABLED: self._settings[CONF_ROUTING_ENABLED],
+                CONF_HOLIDAY_ENTITY: self._settings[CONF_HOLIDAY_ENTITY],
             },
         )
 
@@ -355,7 +528,6 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_LINES, default=self._settings.get(CONF_LINES, DEFAULT_LINES)
                 ): _text_selector(),
-                vol.Optional(CONF_DESTINATION_FILTER, default=""): _text_selector(),
                 vol.Required(
                     CONF_WALKING_MINUTES, default=DEFAULT_WALKING_MINUTES
                 ): _number_selector(MIN_WALKING_MINUTES, MAX_WALKING_MINUTES, "min"),
@@ -375,6 +547,10 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_ROUTING_ENABLED, DEFAULT_ROUTING_ENABLED
                     ),
                 ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_HOLIDAY_ENTITY,
+                    default=self._settings.get(CONF_HOLIDAY_ENTITY) or "",
+                ): _optional_entity_selector(["binary_sensor", "input_boolean"]),
             }
         )
 
@@ -395,7 +571,6 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_CITY, default=default_city): _text_selector(),
                 vol.Required(CONF_STOP_QUERY, default=""): _text_selector(),
                 vol.Optional(CONF_LINES, default=default_lines): _text_selector(),
-                vol.Optional(CONF_DESTINATION_FILTER, default=""): _text_selector(),
                 vol.Required(
                     CONF_WALKING_MINUTES, default=DEFAULT_WALKING_MINUTES
                 ): _number_selector(MIN_WALKING_MINUTES, MAX_WALKING_MINUTES, "min"),
@@ -416,7 +591,7 @@ class HafasBusMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-class HafasBusMonitorOptionsFlow(OptionsFlow):
+class HafasBusMonitorOptionsFlow(_TargetSelectionMixin, OptionsFlow):
     """Manage stops and polling settings of an existing entry."""
 
     def __init__(self) -> None:
@@ -424,8 +599,18 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
         self._settings: dict[str, Any] = {}
         self._stops: list[dict[str, Any]] = []
         self._pending: dict[str, Any] | None = None
+        self._pending_candidate: HafasStop | None = None
         self._matches: list[HafasStop] = []
+        self._line_targets: dict[str, list[str]] = {}
+        self._destinations: dict[str, list[str]] = {}
+        self._target_queue: list[str] = []
+        self._target_index = 0
+        self._target_edit_index: int | None = None
         self._edit_index: int | None = None
+
+    async def _target_complete(self) -> ConfigFlowResult:
+        """Return to the options menu after targets are selected."""
+        return await self.async_step_init()
 
     def _entry(self) -> ConfigEntry:
         """Return the config entry in a way that works on old and new HA."""
@@ -447,6 +632,7 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
             CONF_SCAN_MINUTES: config[CONF_SCAN_MINUTES],
             CONF_UPDATE_INTERVAL: config[CONF_UPDATE_INTERVAL],
             CONF_ROUTING_ENABLED: config[CONF_ROUTING_ENABLED],
+            CONF_HOLIDAY_ENTITY: config[CONF_HOLIDAY_ENTITY],
         }
         self._stops = [dict(stop) for stop in config[CONF_STOPS]]
         self._loaded = True
@@ -460,7 +646,7 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
         if not self._stops:
             return await self.async_step_add_stop()
 
-        menu = ["settings", "add_stop", "edit_stop"]
+        menu = ["settings", "add_stop", "edit_stop", "edit_targets"]
         if len(self._stops) > 1:
             menu.append("remove_stop")
         menu.append("save")
@@ -487,6 +673,9 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                     self._settings[CONF_ROUTING_ENABLED],
                 )
             )
+            self._settings[CONF_HOLIDAY_ENTITY] = (
+                str(user_input.get(CONF_HOLIDAY_ENTITY) or "").strip() or None
+            )
             return await self.async_step_init()
 
         return self.async_show_form(
@@ -505,6 +694,10 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                         CONF_ROUTING_ENABLED,
                         default=self._settings[CONF_ROUTING_ENABLED],
                     ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_HOLIDAY_ENTITY,
+                        default=self._settings.get(CONF_HOLIDAY_ENTITY) or "",
+                    ): _optional_entity_selector(["binary_sensor", "input_boolean"]),
                 }
             ),
         )
@@ -532,10 +725,14 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                     if not matches:
                         errors["base"] = "no_stops"
                     elif len(matches) == 1:
-                        if self._add_stop(matches[0], pending):
-                            self._pending = None
-                            return await self.async_step_init()
-                        errors["base"] = "duplicate_stop"
+                        if any(
+                            stop[CONF_STOP_ID] == matches[0].stop_id
+                            for stop in self._stops
+                        ):
+                            errors["base"] = "duplicate_stop"
+                        else:
+                            self._pending_candidate = matches[0]
+                            return await self._begin_targets()
                     else:
                         self._matches = matches
                         return await self.async_step_select_stop()
@@ -561,11 +758,12 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
             except (KeyError, IndexError, TypeError, ValueError):
                 errors["base"] = "invalid_stop"
             else:
-                if self._add_stop(stop, self._pending):
-                    self._pending = None
+                if any(item[CONF_STOP_ID] == stop.stop_id for item in self._stops):
+                    errors["base"] = "duplicate_stop"
+                else:
+                    self._pending_candidate = stop
                     self._matches = []
-                    return await self.async_step_init()
-                errors["base"] = "duplicate_stop"
+                    return await self._begin_targets()
 
         options = [_stop_label(index, stop) for index, stop in enumerate(self._matches)]
         return self.async_show_form(
@@ -585,6 +783,41 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                 "count": str(len(self._matches)),
                 "query": str((self._pending or {}).get(CONF_STOP_QUERY, "")),
             },
+        )
+
+    # ---------------------------------------------------------- edit targets
+    async def async_step_edit_targets(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose a stop whose per-line destinations should be edited."""
+        self._load()
+        if not self._stops:
+            return await self.async_step_init()
+
+        if user_input is not None:
+            try:
+                index = int(user_input[CONF_STOP_INDEX])
+                stop = self._stops[index]
+            except (IndexError, KeyError, TypeError, ValueError):
+                pass
+            else:
+                self._target_edit_index = index
+                self._pending = {
+                    CONF_CITY: str(stop.get(CONF_STOP_CITY) or ""),
+                    CONF_STOP_QUERY: "",
+                    CONF_LINES: list(stop.get(CONF_LINES) or []),
+                    CONF_WALKING_MINUTES: int(stop.get(CONF_WALKING_MINUTES) or 0),
+                }
+                self._pending_candidate = HafasStop(
+                    stop_id=str(stop.get(CONF_STOP_ID) or ""),
+                    lid=str(stop.get(CONF_STOP_LID) or ""),
+                    name=str(stop.get(CONF_STOP_NAME) or ""),
+                )
+                return await self._begin_targets()
+
+        return self.async_show_form(
+            step_id="edit_targets",
+            data_schema=self._edit_stop_select_schema(),
         )
 
     # ------------------------------------------------------------- edit stop
@@ -617,10 +850,12 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
 
         stop = self._stops[self._edit_index]
         if user_input is not None:
-            stop[CONF_LINES] = normalize_lines(user_input.get(CONF_LINES))
-            stop[CONF_DESTINATION_FILTER] = str(
-                user_input.get(CONF_DESTINATION_FILTER) or ""
-            ).strip()
+            new_lines = normalize_lines(user_input.get(CONF_LINES))
+            old_targets = dict(stop.get(CONF_LINE_TARGETS) or {})
+            stop[CONF_LINES] = new_lines
+            stop[CONF_LINE_TARGETS] = {
+                line: list(old_targets.get(line, [])) for line in new_lines
+            }
             stop[CONF_WALKING_MINUTES] = _int_value(
                 user_input.get(CONF_WALKING_MINUTES),
                 int(stop.get(CONF_WALKING_MINUTES) or 0),
@@ -635,10 +870,6 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_LINES,
                         default=lines_to_text(stop.get(CONF_LINES)),
-                    ): _text_selector(),
-                    vol.Optional(
-                        CONF_DESTINATION_FILTER,
-                        default=str(stop.get(CONF_DESTINATION_FILTER) or ""),
                     ): _text_selector(),
                     vol.Required(
                         CONF_WALKING_MINUTES,
@@ -692,6 +923,7 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                 CONF_SCAN_MINUTES: self._settings[CONF_SCAN_MINUTES],
                 CONF_UPDATE_INTERVAL: self._settings[CONF_UPDATE_INTERVAL],
                 CONF_ROUTING_ENABLED: self._settings[CONF_ROUTING_ENABLED],
+                CONF_HOLIDAY_ENTITY: self._settings[CONF_HOLIDAY_ENTITY],
             },
         )
 
@@ -707,9 +939,6 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
             CONF_CITY: city,
             CONF_STOP_QUERY: query,
             CONF_LINES: normalize_lines(user_input.get(CONF_LINES)),
-            CONF_DESTINATION_FILTER: str(
-                user_input.get(CONF_DESTINATION_FILTER) or ""
-            ).strip(),
             CONF_WALKING_MINUTES: _int_value(
                 user_input.get(CONF_WALKING_MINUTES), DEFAULT_WALKING_MINUTES
             ),
@@ -728,7 +957,12 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
             limit=MAX_LOCATION_RESULTS,
         )
 
-    def _add_stop(self, candidate: HafasStop, pending: dict[str, Any]) -> bool:
+    def _add_stop(
+        self,
+        candidate: HafasStop,
+        pending: dict[str, Any],
+        line_targets: dict[str, list[str]],
+    ) -> bool:
         if any(stop[CONF_STOP_ID] == candidate.stop_id for stop in self._stops):
             return False
         self._stops.append(
@@ -738,7 +972,7 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                 CONF_STOP_NAME: candidate.name,
                 CONF_STOP_CITY: pending[CONF_CITY],
                 CONF_LINES: list(pending[CONF_LINES]),
-                CONF_DESTINATION_FILTER: pending[CONF_DESTINATION_FILTER],
+                CONF_LINE_TARGETS: dict(line_targets),
                 CONF_WALKING_MINUTES: pending[CONF_WALKING_MINUTES],
             }
         )
@@ -758,7 +992,6 @@ class HafasBusMonitorOptionsFlow(OptionsFlow):
                 vol.Required(CONF_CITY, default=default_city): _text_selector(),
                 vol.Required(CONF_STOP_QUERY, default=""): _text_selector(),
                 vol.Optional(CONF_LINES, default=default_lines): _text_selector(),
-                vol.Optional(CONF_DESTINATION_FILTER, default=""): _text_selector(),
                 vol.Required(
                     CONF_WALKING_MINUTES, default=DEFAULT_WALKING_MINUTES
                 ): _number_selector(MIN_WALKING_MINUTES, MAX_WALKING_MINUTES, "min"),

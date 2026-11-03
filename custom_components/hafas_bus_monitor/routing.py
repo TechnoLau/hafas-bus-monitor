@@ -15,12 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from .api import HafasDeparture, StopDepartures
-from .const import (
-    CONF_DESTINATION_FILTER,
-    CONF_STOP_ID,
-    CONF_STOP_NAME,
-    CONF_WALKING_MINUTES,
-)
+from .const import CONF_LINE_TARGETS, CONF_STOP_ID, CONF_STOP_NAME, CONF_WALKING_MINUTES
 from .util import short_stop_name
 
 
@@ -33,7 +28,7 @@ class RouteCandidate:
     stop_short: str
     city: str | None
     walk_minutes: int
-    destination_filter: str
+    line_targets: dict[str, list[str]]
     line: str
     destination: str
     departure: datetime
@@ -52,7 +47,7 @@ class RouteCandidate:
             "stop_short": self.stop_short,
             "city": self.city,
             "walk_minutes": self.walk_minutes,
-            "destination_filter": self.destination_filter or None,
+            "line_targets": self.line_targets,
             "line": self.line,
             "destination": self.destination,
             "departure_time": self.departure.isoformat(),
@@ -103,7 +98,7 @@ def _candidate_from_departure(
         stop_short=short_stop_name(str(stop.get(CONF_STOP_NAME) or ""), city),
         city=city,
         walk_minutes=walk_minutes,
-        destination_filter=str(stop.get(CONF_DESTINATION_FILTER) or "").strip(),
+        line_targets=dict(stop.get(CONF_LINE_TARGETS) or {}),
         line=departure.line,
         destination=departure.destination,
         departure=departure.departure,
@@ -136,7 +131,7 @@ def evaluate_routing(
         stop_id = str(stop.get(CONF_STOP_ID) or "")
         city = str(stop.get("city") or "").strip() or None
         walk_minutes = max(0, int(stop.get(CONF_WALKING_MINUTES) or 0))
-        destination_filter = str(stop.get(CONF_DESTINATION_FILTER) or "").strip()
+        line_targets = dict(stop.get(CONF_LINE_TARGETS) or {})
         stop_name = str(stop.get(CONF_STOP_NAME) or stop_id)
         stop_short = short_stop_name(stop_name, city)
         departures = data.get(stop_id)
@@ -149,7 +144,7 @@ def evaluate_routing(
                     "stop_short": stop_short,
                     "city": city,
                     "walk_minutes": walk_minutes,
-                    "destination_filter": destination_filter or None,
+                    "line_targets": line_targets,
                     "catchable": False,
                     "error": "no_data",
                 }
@@ -160,15 +155,7 @@ def evaluate_routing(
         if board_active:
             any_departures = True
 
-        if destination_filter:
-            filter_key = destination_filter.casefold()
-            active = [
-                item
-                for item in board_active
-                if filter_key in item.destination.casefold()
-            ]
-        else:
-            active = board_active
+        active = board_active
 
         chosen: HafasDeparture | None = None
         for departure in active:
@@ -198,13 +185,9 @@ def evaluate_routing(
                         "stop_short": stop_short,
                         "city": city,
                         "walk_minutes": walk_minutes,
-                        "destination_filter": destination_filter or None,
+                        "line_targets": line_targets,
                         "catchable": False,
-                        "error": (
-                            "no_matching_destination"
-                            if destination_filter and board_active
-                            else "no_departures"
-                        ),
+                        "error": "no_departures",
                     }
                 )
             continue

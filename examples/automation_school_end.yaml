@@ -20,7 +20,7 @@ condition:
   - condition: template
     value_template: >-
       {{ states('sensor.hafas_schnellste_verbindung')
-         not in ['unknown', 'unavailable', 'Keine Verbindung'] }}
+         not in ['unknown', 'unavailable', 'Keine Verbindung', 'Ferien', 'Ruhezeit'] }}
 action:
   - service: hafas_bus_monitor.refresh
   - delay: "00:00:03"

@@ -23,10 +23,10 @@ cards:
       {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}{% if dep.cancelled %} · **fällt aus**{% endif %}
+      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
-      Keine passenden Abfahrten im Vorschau-Fenster.
+      Keine erreichbare Abfahrt im Vorschau-Fenster.
       {% endif %}
 
   - type: markdown
@@ -35,8 +35,16 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.minutes_until_departure }} Min** · {{ dep.departure_time_local }}{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}{% if dep.cancelled %} · **fällt aus**{% endif %}
+      - **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.departure_time_local }}** · in {{ dep.minutes_until_departure }} Min · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
-      Keine passenden Abfahrten im Vorschau-Fenster.
+      Keine erreichbare Abfahrt im Vorschau-Fenster.
       {% endif %}
+
+  - type: markdown
+    title: Alle HAFAS-Daten Hospitalstraße
+    content: |
+      {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
+      {% for dep in all %}
+      - {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+      {% endfor %}

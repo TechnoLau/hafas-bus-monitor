@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -15,6 +15,10 @@ from homeassistant.util import dt as dt_util
 
 from .api import HafasClient, HafasStop, StopDepartures
 from .const import (
+    ACTIVE_END_HOUR,
+    ACTIVE_START_HOUR,
+    CONF_HOLIDAY_ENTITY,
+    CONF_LINE_TARGETS,
     CONF_SCAN_MINUTES,
     CONF_STOP_ID,
     CONF_STOP_LID,
@@ -77,10 +81,30 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return None
         return errors.get(stop_id)
 
+    @property
+    def pause_reason(self) -> str | None:
+        """Return 'holiday' or 'outside_hours' while polling is paused."""
+        if not self.data:
+            return None
+        reason = self.data.get("paused")
+        return str(reason) if reason else None
+
+    def _pause_reason(self, now: datetime) -> str | None:
+        """Return why polling should be skipped, if applicable."""
+        if now.hour < ACTIVE_START_HOUR or now.hour >= ACTIVE_END_HOUR:
+            return "outside_hours"
+
+        holiday_entity = self.config.get(CONF_HOLIDAY_ENTITY)
+        if holiday_entity:
+            state = self.hass.states.get(str(holiday_entity))
+            if state is not None and state.state == "on":
+                return "holiday"
+        return None
+
     async def _fetch_stop(
         self,
         stop: dict[str, Any],
-        now: Any,
+        now: datetime,
     ) -> StopDepartures:
         """Fetch one stop board."""
         hafas_stop = HafasStop(
@@ -93,6 +117,7 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             now=now,
             scan_minutes=int(self.config[CONF_SCAN_MINUTES]),
             lines=stop.get("lines") or [],
+            line_targets=stop.get(CONF_LINE_TARGETS) or {},
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -101,6 +126,16 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         stops = self.stops
         if not stops:
             raise UpdateFailed("No stops configured")
+
+        pause_reason = self._pause_reason(now)
+        if pause_reason:
+            self._last_errors = {}
+            return {
+                "stops": {},
+                "errors": {},
+                "fetched_at": now,
+                "paused": pause_reason,
+            }
 
         outcomes = await asyncio.gather(
             *(self._fetch_stop(stop, now) for stop in stops),
@@ -151,4 +186,5 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "stops": results,
             "errors": errors,
             "fetched_at": now,
+            "paused": None,
         }

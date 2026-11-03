@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "hafas_bus_monitor"
 NAME: Final = "HAFAS Bus Monitor"
-VERSION: Final = "1.0.0"
+VERSION: Final = "2.0.0"
 
 # Configuration keys ---------------------------------------------------------
 CONF_CITY: Final = "city"
@@ -15,6 +15,9 @@ CONF_STOPS: Final = "stops"
 CONF_LINES: Final = "lines"
 CONF_WALKING_MINUTES: Final = "walking_minutes"
 CONF_DESTINATION_FILTER: Final = "destination_filter"
+CONF_LINE_TARGETS: Final = "line_targets"
+CONF_TARGETS: Final = "targets"
+CONF_HOLIDAY_ENTITY: Final = "holiday_entity"
 CONF_SCAN_MINUTES: Final = "scan_minutes"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_ROUTING_ENABLED: Final = "routing_enabled"
@@ -32,7 +35,7 @@ DEFAULT_CITY: Final = "Kiel"
 DEFAULT_LINES: Final = "61, 62"
 DEFAULT_WALKING_MINUTES: Final = 5
 DEFAULT_SCAN_MINUTES: Final = 60
-DEFAULT_UPDATE_INTERVAL: Final = 60
+DEFAULT_UPDATE_INTERVAL: Final = 30
 DEFAULT_ROUTING_ENABLED: Final = True
 
 MIN_WALKING_MINUTES: Final = 0
@@ -42,7 +45,10 @@ MAX_SCAN_MINUTES: Final = 180
 MIN_UPDATE_INTERVAL: Final = 30
 MAX_UPDATE_INTERVAL: Final = 300
 
-MAX_DEPARTURES: Final = 12
+MAX_DEPARTURES: Final = 8
+MAX_FETCH_DEPARTURES: Final = 100
+DESTINATION_DISCOVERY_MINUTES: Final = 720
+DESTINATION_DISCOVERY_MAX_TRIPS: Final = 300
 MAX_LOCATION_RESULTS: Final = 10
 
 # HAFAS / NAH.SH -------------------------------------------------------------
@@ -67,9 +73,14 @@ HAFAS_AUTH: Final = {
 # locally, because HAFAS line IDs differ between deployments.
 HAFAS_BUS_PRODUCT_MASK: Final = 544
 HAFAS_USER_AGENT: Final = (
-    "hafas-bus-monitor-homeassistant/1.0 "
+    "hafas-bus-monitor-homeassistant/2.0 "
     "(+https://github.com/TechnoLau/hafas-bus-monitor)"
 )
+
+# Active polling window (local HAFAS timezone) --------------------------------
+ACTIVE_START_HOUR: Final = 6
+ACTIVE_END_HOUR: Final = 22
+ACTIVE_HOURS_TEXT: Final = "06:00–22:00"
 
 # Services -------------------------------------------------------------------
 SERVICE_REFRESH: Final = "refresh"
@@ -90,6 +101,11 @@ ATTR_BEST: Final = "best"
 ATTR_OPTIONS: Final = "options"
 ATTR_SELECTION_METHOD: Final = "selection_method"
 ATTR_DEPARTURE_COUNT: Final = "departure_count"
+ATTR_UNREACHABLE_DEPARTURES: Final = "unreachable_departures"
+ATTR_PAUSED_REASON: Final = "paused_reason"
+ATTR_ACTIVE_HOURS: Final = "active_hours"
+ATTR_LINE_TARGETS: Final = "line_targets"
+ATTR_MINUTES_UNTIL_DEPARTURE: Final = "minutes_until_departure"
 
 SELECTION_METHOD: Final = (
     "Earliest real-time departure that can still be reached on foot; "

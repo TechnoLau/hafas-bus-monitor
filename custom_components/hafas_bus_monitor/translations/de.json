@@ -3,16 +3,16 @@
     "step": {
       "user": {
         "title": "HAFAS Bus Monitor einrichten",
-        "description": "Erste Haltestelle einrichten. Stadt und Suchbegriff eingeben (z. B. \"Kiel\" und \"Hospitalstraße\"). Bevorzugte Linien kommagetrennt; leer lassen = alle Linien. Die Fußweg-Zeit wird für den Schnellste-Verbindung-Sensor verwendet.",
+        "description": "Eine Kachel/Haltestelle pro Entität einrichten. Stadt und Suchbegriff eingeben (z. B. \"Kiel\" und \"Hospitalstraße\"). Bevorzugte Linien kommagetrennt; leer lassen = alle Linien. Nach der Haltestellenauswahl werden die Ziele pro Linie gewählt. Die Abfrage läuft alle 30 Sekunden zwischen 06:00 und 22:00; ein optionaler Ferien-Sensor pausiert in den Schulferien.",
         "data": {
           "city": "Stadt",
           "stop_query": "Haltestelle (Suchbegriff)",
           "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "destination_filter": "Ziel-Filter (optional)",
           "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)",
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
-          "routing_enabled": "Schnellste-Verbindung-Sensor anlegen"
+          "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
+          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
         }
       },
       "select_stop": {
@@ -24,20 +24,26 @@
       },
       "add_stop": {
         "title": "Weitere Haltestelle hinzufügen?",
-        "description": "{count} Haltestelle(n) eingerichtet: {stops}. Eine weitere Haltestelle ermöglicht den Vergleich der Fußweg-Zeiten für die schnellste Verbindung.",
+        "description": "{count} Kachel(n) eingerichtet: {stops}. Eine weitere Kachel/Haltestelle ermöglicht den Vergleich der Fußweg-Zeiten für die schnellste Verbindung.",
         "data": {
           "add_another": "Weitere Haltestelle hinzufügen"
         }
       },
       "stop": {
         "title": "Haltestelle hinzufügen",
-        "description": "Stadt, Suchbegriff und Linienfilter für die zusätzliche Haltestelle eingeben.",
+        "description": "Stadt, Suchbegriff und Linienfilter für die zusätzliche Kachel/Haltestelle eingeben.",
         "data": {
           "city": "Stadt",
           "stop_query": "Haltestelle (Suchbegriff)",
           "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "destination_filter": "Ziel-Filter (optional)",
           "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
+        }
+      },
+      "targets": {
+        "title": "Ziele auswählen",
+        "description": "Wähle die Ziele für Linie {line} an {stop}. Keine Auswahl = alle Ziele. Du kannst pro Linie ein oder mehrere Ziele auswählen.",
+        "data": {
+          "targets": "Ziele"
         }
       }
     },
@@ -61,19 +67,21 @@
         "title": "HAFAS Bus Monitor Optionen",
         "menu_options": {
           "settings": "Abfrage- und Routing-Einstellungen",
-          "add_stop": "Haltestelle hinzufügen",
+          "add_stop": "Kachel/Haltestelle hinzufügen",
           "edit_stop": "Linien / Fußweg bearbeiten",
           "remove_stop": "Haltestelle entfernen",
-          "save": "Speichern und neu laden"
+          "save": "Speichern und neu laden",
+          "edit_targets": "Ziele pro Linie bearbeiten"
         }
       },
       "settings": {
         "title": "Abfrage- und Routing-Einstellungen",
-        "description": "Das Aktualisierungsintervall legt fest, wie oft HAFAS abgefragt wird. Das Vorschau-Fenster legt fest, wie weit in die Zukunft Abfahrten abgefragt werden.",
+        "description": "Das Aktualisierungsintervall legt fest, wie oft HAFAS während der aktiven Zeit (06:00–22:00) abgefragt wird. Das Vorschau-Fenster legt fest, wie weit in die Zukunft Abfragen gehen. Ein optionaler Ferien-Sensor pausiert die Abfrage, solange er an ist.",
         "data": {
           "scan_minutes": "Vorschau-Fenster (Minuten)",
           "update_interval": "Aktualisierungsintervall (Sekunden)",
-          "routing_enabled": "Schnellste-Verbindung-Sensor anlegen"
+          "routing_enabled": "Schnellste-Verbindung-Sensor anlegen",
+          "holiday_entity": "Ferien-Sensor (optional, an = Schulferien)"
         }
       },
       "add_stop": {
@@ -83,7 +91,6 @@
           "city": "Stadt",
           "stop_query": "Haltestelle (Suchbegriff)",
           "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "destination_filter": "Ziel-Filter (optional)",
           "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
         }
       },
@@ -106,13 +113,26 @@
         "description": "Linienfilter oder Fußweg dieser Haltestelle ändern.",
         "data": {
           "lines": "Bevorzugte Linien (kommagetrennt, leer = alle)",
-          "destination_filter": "Ziel-Filter (optional)",
           "walking_minutes": "Fußweg zu dieser Haltestelle (Minuten)"
         }
       },
       "remove_stop": {
         "title": "Haltestelle entfernen",
         "description": "Haltestelle zum Entfernen auswählen. Mindestens eine Haltestelle muss bestehen bleiben.",
+        "data": {
+          "stop": "Haltestelle"
+        }
+      },
+      "targets": {
+        "title": "Ziele auswählen",
+        "description": "Wähle die Ziele für Linie {line} an {stop}. Keine Auswahl = alle Ziele. Du kannst pro Linie ein oder mehrere Ziele auswählen.",
+        "data": {
+          "targets": "Ziele"
+        }
+      },
+      "edit_targets": {
+        "title": "Ziele pro Linie bearbeiten",
+        "description": "Haltestelle auswählen, deren Ziel-Filter geändert werden soll.",
         "data": {
           "stop": "Haltestelle"
         }
@@ -127,7 +147,8 @@
       "invalid_stop": "Die ausgewählte Haltestelle ist ungültig. Bitte erneut versuchen."
     },
     "abort": {
-      "invalid_flow": "Der Einrichtungsdialog ist nicht mehr gültig. Bitte neu starten."
+      "invalid_flow": "Der Einrichtungsdialog ist nicht mehr gültig. Bitte neu starten.",
+      "already_configured": "Diese Haltestelle ist bereits eingerichtet."
     }
   },
   "services": {
