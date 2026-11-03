@@ -8,9 +8,9 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 from .api import HafasDeparture
 from .const import (
@@ -52,7 +52,6 @@ from .const import (
     MAX_DEPARTURES,
     MAX_UNREACHABLE_DEPARTURES,
     SELECTION_METHOD,
-    VERSION,
 )
 from .coordinator import HafasDataUpdateCoordinator
 from .routing import RoutingResult, evaluate_routing
@@ -113,12 +112,12 @@ def _departure_payload(
             "leave_in_minutes": max(0, minutes_until - walking_minutes),
             "reachable": reachable,
             "display_short": (
-                f"{departure.line} → {departure.destination} · "
+                f"{departure.line} | {departure.destination} · "
                 f"{departure.departure:%H:%M}"
             ),
-            "line_destination": f"{departure.line} → {departure.destination}",
+            "line_destination": f"{departure.line} | {departure.destination}",
             "time_text": (
-                f"in {minutes_until} Min"
+                f"in {minutes_until} min"
                 if minutes_until < DISPLAY_MINUTES_THRESHOLD
                 else departure.departure.strftime("%H:%M")
             ),
@@ -154,26 +153,9 @@ class _HafasBaseSensor(CoordinatorEntity[HafasDataUpdateCoordinator], SensorEnti
         return _pause_label(self._pause_reason)
 
     @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information for this entity."""
-        city = str(self._config.get(CONF_CITY) or "").strip()
-        subentry_id = getattr(self, "_subentry_id", None)
-        identifier = (
-            f"{self._entry.entry_id}_{subentry_id}"
-            if subentry_id
-            else self._entry.entry_id
-        )
-        model = f"Busabfahrten {city}".strip()
-        if subentry_id:
-            model = f"{model} · {getattr(self, '_short_name', 'Haltestelle')}"
-        return DeviceInfo(
-            identifiers={(DOMAIN, identifier)},
-            name="HAFAS",
-            manufacturer="NAH.SH / HAFAS",
-            model=model,
-            sw_version=VERSION,
-            configuration_url="https://www.nah.sh/",
-        )
+    def device_info(self):
+        """Do not attach a device; the friendly name stays the stop/function name."""
+        return None
 
 
 class HafasStopSensor(_HafasBaseSensor):
@@ -199,6 +181,16 @@ class HafasStopSensor(_HafasBaseSensor):
         self._attr_unique_id = (
             f"{entry.entry_id}_{stop.get(CONF_STOP_ID, 'stop')}_departures"
         )
+
+    @property
+    def device_info(self):
+        """Keep stop entities without a device so the friendly name is just the stop."""
+        return None
+
+    @property
+    def suggested_object_id(self) -> str:
+        """Return the historical hafas_<stop> entity id."""
+        return f"hafas_{slugify(self._short_name) or 'stop'}"
 
     @property
     def _stop_data(self):
@@ -241,7 +233,7 @@ class HafasStopSensor(_HafasBaseSensor):
         payloads = self._departure_payloads
         for payload in payloads:
             if payload["reachable"] and not payload["cancelled"]:
-                return f"{payload['line_destination']} · {payload['time_text']}"
+                return f"{payload['line_destination']} * {payload['time_text']}"
         if self._stop_data is None:
             return None
         return "Keine erreichbare Abfahrt"
@@ -325,6 +317,11 @@ class HafasRoutingSensor(_HafasBaseSensor):
         super().__init__(coordinator, entry, config)
         self._attr_name = "Schnellste Verbindung"
         self._attr_unique_id = f"{entry.entry_id}_fastest_connection"
+
+    @property
+    def suggested_object_id(self) -> str:
+        """Return the historical hafas_schnellste_verbindung entity id."""
+        return "hafas_schnellste_verbindung"
 
     @property
     def _routing(self) -> RoutingResult:

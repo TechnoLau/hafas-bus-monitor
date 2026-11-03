@@ -85,9 +85,7 @@ class RoutingResult:
         if self.best is None:
             return "Keine Verbindung"
         stop = self.best.stop_short or self.best.stop_name
-        if self.best.minutes_until < DISPLAY_MINUTES_THRESHOLD:
-            return f"Linie {self.best.line} ab {stop} in {self.best.minutes_until} Min"
-        return f"Linie {self.best.line} ab {stop} um {self.best.departure:%H:%M}"
+        return f"Linie {self.best.line} ab {stop} {self.best.time_text}"
 
 
 def _candidate_from_departure(
@@ -117,7 +115,7 @@ def _candidate_from_departure(
         departure=departure.departure,
         minutes_until=minutes_until,
         time_text=(
-            f"in {minutes_until} Min"
+            f"in {minutes_until} min"
             if minutes_until < DISPLAY_MINUTES_THRESHOLD
             else f"um {departure.departure:%H:%M}"
         ),

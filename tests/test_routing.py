@@ -111,7 +111,7 @@ class RoutingTest(unittest.TestCase):
         assert result.best is not None
         self.assertEqual(result.best.stop_id, "hospital")
         self.assertEqual(result.best.line, "61")
-        self.assertEqual(result.state, "Linie 61 ab Hospitalstraße in 5 Min")
+        self.assertEqual(result.state, "Linie 61 ab Hospitalstraße in 5 min")
 
     def test_earlier_bus_wins_when_walk_fits(self) -> None:
         data = {
@@ -131,7 +131,7 @@ class RoutingTest(unittest.TestCase):
         result = evaluate_routing(stops, data, NOW)
         assert result.best is not None
         self.assertEqual(result.best.stop_id, "kunsthalle")
-        self.assertEqual(result.state, "Linie 62 ab Kunsthalle in 4 Min")
+        self.assertEqual(result.state, "Linie 62 ab Kunsthalle in 4 min")
         self.assertEqual(result.best.leave_in_minutes, 2)
 
     def test_skips_uncatchable_bus_and_takes_next(self) -> None:

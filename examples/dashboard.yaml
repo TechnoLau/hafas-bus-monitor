@@ -23,7 +23,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_hospitalstrasse', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -35,7 +35,7 @@ cards:
       {% set departures = state_attr('sensor.hafas_kunsthalle', 'departures') or [] %}
       {% if departures %}
       {% for dep in departures[:6] %}
-      - <span style="color: {{ dep.line_color }}">●</span> **Linie {{ dep.line }}** → {{ dep.destination }} · **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
+      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** * **{{ dep.time_text }}** · Fußweg {{ dep.walking_minutes }} Min · los in {{ dep.leave_in_minutes }} Min{% if dep.delay > 0 %} · +{{ dep.delay }} Min{% elif dep.delay < 0 %} · {{ dep.delay }} Min{% endif %}
       {% endfor %}
       {% else %}
       Keine erreichbare Abfahrt im Vorschau-Fenster.
@@ -46,5 +46,5 @@ cards:
     content: |
       {% set all = state_attr('sensor.hafas_hospitalstrasse', 'all_departures') or [] %}
       {% for dep in all %}
-      - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · Linie {{ dep.line }} → {{ dep.destination }} · {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
+      - <span style="color: {{ dep.line_color }}">●</span> {{ dep.departure_time_local }} · {{ dep.line_destination }} * {{ dep.time_text }} · Steig {{ dep.platform or '–' }} · Delay {{ dep.delay }} Min · Echtzeit {{ dep.realtime }} · erreichbar {{ dep.reachable }}
       {% endfor %}

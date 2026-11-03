@@ -7,12 +7,11 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_CITY, DOMAIN, VERSION
+from .const import DOMAIN
 from .coordinator import HafasDataUpdateCoordinator
 
 
@@ -49,17 +48,14 @@ class HafasHolidaySwitch(
         self._attr_unique_id = f"{entry.entry_id}_holiday_mode"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        """Return the hub device."""
-        city = str(self._config.get(CONF_CITY) or "").strip()
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._entry.entry_id)},
-            name="HAFAS",
-            manufacturer="NAH.SH / HAFAS",
-            model=f"Busabfahrten {city}".strip(),
-            sw_version=VERSION,
-            configuration_url="https://www.nah.sh/",
-        )
+    def device_info(self):
+        """Do not attach a device; the friendly name stays 'Ferienmodus'."""
+        return None
+
+    @property
+    def suggested_object_id(self) -> str:
+        """Return the historical hafas_ferienmodus entity id."""
+        return "hafas_ferienmodus"
 
     @property
     def is_on(self) -> bool:
