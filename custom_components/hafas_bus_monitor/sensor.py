@@ -471,18 +471,38 @@ class HafasNearestStopSensor(_HafasBaseSensor):
             return None
         return latitude, longitude
 
+    def _zone_for_state(self, state) -> Any | None:
+        """Return a zone matching a tracker state name, if possible."""
+        if state is None:
+            return None
+        key = str(state.state or "").strip().casefold()
+        if not key or key in {"not_home", "unknown", "unavailable"}:
+            return None
+        for zone in self.hass.states.async_all("zone"):
+            zone_key = zone.entity_id.split(".", 1)[-1].casefold()
+            zone_name = str(
+                zone.attributes.get("friendly_name") or zone.name or ""
+            ).casefold()
+            if key in {zone_key, zone_name}:
+                return zone
+        return None
+
     @property
     def _position(self) -> tuple[float, float, str] | None:
-        """Return coordinates and their source (tracker or home zone)."""
+        """Return coordinates and their source (tracker or zone centre)."""
         tracker_state = self._tracker_state
         coordinates = self._coordinates_from_state(tracker_state)
         if coordinates is not None:
             return coordinates[0], coordinates[1], "tracker"
-        if tracker_state is not None and tracker_state.state == "home":
-            home_state = self.hass.states.get("zone.home")
-            home_coordinates = self._coordinates_from_state(home_state)
-            if home_coordinates is not None:
-                return home_coordinates[0], home_coordinates[1], "home_zone"
+
+        zone = self._zone_for_state(tracker_state)
+        zone_coordinates = self._coordinates_from_state(zone)
+        if zone_coordinates is not None:
+            return (
+                zone_coordinates[0],
+                zone_coordinates[1],
+                f"zone:{zone.entity_id}",
+            )
         return None
 
     @property
@@ -561,7 +581,7 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         payloads, _ = self._nearest_payloads
         if payloads:
             first = payloads[0]
-            return f"{short}: {first['line_destination']} * {first['time_text']}"
+            return f"{short}: {first['line_destination']} · {first['time_text']}"
         if self.coordinator.stop_data(str(stop.get(CONF_STOP_ID))) is None:
             return f"{short}: Keine Daten"
         return f"{short}: Keine erreichbare Abfahrt"
@@ -586,6 +606,11 @@ class HafasNearestStopSensor(_HafasBaseSensor):
                 self._tracker_state.state if self._tracker_state else None
             ),
             "position_source": (self._position[2] if self._position else None),
+            "zone": (
+                self._zone_for_state(self._tracker_state).entity_id
+                if self._zone_for_state(self._tracker_state)
+                else None
+            ),
             ATTR_DEPARTURES: payloads,
             ATTR_DEPARTURE_COUNT: len(payloads),
             ATTR_NEXT_DEPARTURE: next_departure,

@@ -154,10 +154,13 @@ Dieser Sensor:
 - ignoriert Haltestellen, die nicht als Kachel eingerichtet sind
 - zeigt `Tracker nicht gefunden`, wenn die Entität fehlt
 - zeigt `Keine GPS-Koordinaten`, wenn der Tracker keine `latitude`/`longitude`-Attribute liefert
-- nutzt bei `state == home` ohne GPS-Attribute die Koordinaten von `zone.home` als Fallback
-- liefert `tracker_state` und `position_source` als Diagnose-Attribute
+- nutzt bei Trackern, die nur eine Zone melden (z. B. `home`, `Schule`), die Koordinaten der passenden `zone.*` als Fallback
+- liefert `tracker_state`, `position_source` und `zone` als Diagnose-Attribute
+- `position_source: tracker` = echte GPS-Koordinaten, `zone:zone.schule` = Zonen-Mittelpunkt
 
 Der Sensor wird bei jeder Aktualisierung neu berechnet; die normale 30-Sekunden-Aktualisierung genügt also auch für Standortwechsel.
+
+> **Nur Zonen statt GPS:** Wenn der Tracker nur `home`, `not_home` oder einen Zonennamen liefert, kann die Integration nur den Zonen-Mittelpunkt verwenden. Für die exakte nächste Haltestelle in der Home-Assistant-Companion-App die Standortfreigabe auf **genau/immer** stellen oder einen GPS-Logger als `device_tracker` verwenden.
 
 ---
 
@@ -672,7 +675,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.3.4
+git tag v3.3.5
 git push origin v3.0.1
 ```
 
