@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "hafas_bus_monitor"
 NAME: Final = "HAFAS Bus Monitor"
-VERSION: Final = "3.3.7"
+VERSION: Final = "3.4.0"
 
 # Configuration keys ---------------------------------------------------------
 CONF_CITY: Final = "city"
@@ -18,8 +18,6 @@ CONF_DESTINATION_FILTER: Final = "destination_filter"
 CONF_LINE_TARGETS: Final = "line_targets"
 CONF_TARGETS: Final = "targets"
 CONF_HOLIDAY_ENTITY: Final = "holiday_entity"
-CONF_DEVICE_TRACKER: Final = "device_tracker"
-CONF_GEOCODED_SENSOR: Final = "geocoded_sensor"
 CONF_SCAN_MINUTES: Final = "scan_minutes"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_ROUTING_ENABLED: Final = "routing_enabled"
@@ -31,8 +29,6 @@ CONF_STOP_ID: Final = "id"
 CONF_STOP_LID: Final = "lid"
 CONF_STOP_NAME: Final = "name"
 CONF_STOP_CITY: Final = "city"
-CONF_STOP_LAT: Final = "latitude"
-CONF_STOP_LON: Final = "longitude"
 CONF_SUBENTRY_ID: Final = "subentry_id"
 
 SUBENTRY_TYPE_STOP: Final = "stop"
@@ -83,7 +79,7 @@ HAFAS_AUTH: Final = {
 # locally, because HAFAS line IDs differ between deployments.
 HAFAS_BUS_PRODUCT_MASK: Final = 544
 HAFAS_USER_AGENT: Final = (
-    "hafas-bus-monitor-homeassistant/3.3.7 "
+    "hafas-bus-monitor-homeassistant/3.4.0 "
     "(+https://github.com/TechnoLau/hafas-bus-monitor)"
 )
 
@@ -117,7 +113,6 @@ ATTR_ACTIVE_HOURS: Final = "active_hours"
 ATTR_LINE_TARGETS: Final = "line_targets"
 ATTR_MINUTES_UNTIL_DEPARTURE: Final = "minutes_until_departure"
 ATTR_LINE_COLORS: Final = "line_colors"
-ATTR_DISTANCE_M: Final = "distance_m"
 
 SELECTION_METHOD: Final = (
     "Earliest real-time departure that can still be reached on foot; "

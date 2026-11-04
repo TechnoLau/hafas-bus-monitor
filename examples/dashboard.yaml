@@ -18,18 +18,12 @@ cards:
       {% endif %}
 
   - type: custom:hafas-departure-card
-    entity: sensor.hafas_hospitalstrasse
+    entity: sensor.hafas_naechste_haltestelle
 
-  - type: markdown
-    title: Nächste Haltestelle (GPS)
-    content: |
-      **{{ states('sensor.hafas_naechste_haltestelle') }}**
-
-      {% set nearest = state_attr('sensor.hafas_naechste_haltestelle', 'departures') or [] %}
-      Entfernung: {{ state_attr('sensor.hafas_naechste_haltestelle', 'distance_m') }} m
-      {% for dep in nearest[:5] %}
-      - <span style="color: {{ dep.line_color }}">●</span> **{{ dep.line_destination }}** · **{{ dep.time_text }}**
-      {% endfor %}
+  - type: entities
+    title: Haltestelle auswählen
+    entities:
+      - entity: select.hafas_haltestelle
 
   - type: markdown
     title: Busse ab Hospitalstraße

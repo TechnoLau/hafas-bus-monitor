@@ -8,9 +8,7 @@
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
           "routing_enabled": "Create fastest-connection sensor",
-          "holiday_entity": "Holiday sensor (optional, on = school holidays)",
-          "device_tracker": "Phone/device tracker for nearest stop (optional)",
-          "geocoded_sensor": "Geocoded-location sensor (optional, exact phone location)"
+          "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
       }
     },
@@ -27,9 +25,7 @@
           "scan_minutes": "Look-ahead window (minutes)",
           "update_interval": "Update interval (seconds)",
           "routing_enabled": "Create fastest-connection sensor",
-          "holiday_entity": "Holiday sensor (optional, on = school holidays)",
-          "device_tracker": "Phone/device tracker for nearest stop (optional)",
-          "geocoded_sensor": "Geocoded-location sensor (optional, exact phone location)"
+          "holiday_entity": "Holiday sensor (optional, on = school holidays)"
         }
       }
     }

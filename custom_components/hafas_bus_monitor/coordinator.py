@@ -57,10 +57,31 @@ class HafasDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._last_errors: dict[str, str] = {}
         self.holiday_override = False
+        stops = self.config.get(CONF_STOPS) or []
+        self.selected_stop_id: str | None = (
+            str(stops[0].get(CONF_STOP_ID)) if stops else None
+        )
 
     def set_holiday_override(self, enabled: bool) -> None:
         """Set the manual holiday mode from the switch."""
         self.holiday_override = bool(enabled)
+
+    def set_selected_stop(self, stop_id: str | None) -> None:
+        """Select the stop shown by the 'Nächste Haltestelle' sensor."""
+        if stop_id == self.selected_stop_id:
+            return
+        self.selected_stop_id = stop_id
+        self.async_update_listeners()
+
+    def selected_stop(self) -> dict[str, Any] | None:
+        """Return the currently selected stop."""
+        stops = self.stops
+        if not stops:
+            return None
+        for stop in stops:
+            if str(stop.get(CONF_STOP_ID)) == str(self.selected_stop_id):
+                return stop
+        return stops[0]
 
     @property
     def stops(self) -> list[dict[str, Any]]:

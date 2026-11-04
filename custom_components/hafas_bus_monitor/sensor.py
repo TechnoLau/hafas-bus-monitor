@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Any
 
@@ -22,7 +21,6 @@ from .const import (
     ATTR_CITY,
     ATTR_DEPARTURE_COUNT,
     ATTR_DEPARTURES,
-    ATTR_DISTANCE_M,
     ATTR_ERROR,
     ATTR_LAST_UPDATE,
     ATTR_LINE_COLORS,
@@ -39,15 +37,11 @@ from .const import (
     ATTR_UNREACHABLE_DEPARTURES,
     ATTR_WALKING_MINUTES,
     CONF_CITY,
-    CONF_DEVICE_TRACKER,
-    CONF_GEOCODED_SENSOR,
     CONF_LINE_TARGETS,
     CONF_LINES,
     CONF_ROUTING_ENABLED,
     CONF_SCAN_MINUTES,
     CONF_STOP_ID,
-    CONF_STOP_LAT,
-    CONF_STOP_LON,
     CONF_STOP_NAME,
     CONF_STOPS,
     CONF_SUBENTRY_ID,
@@ -61,7 +55,7 @@ from .const import (
 )
 from .coordinator import HafasDataUpdateCoordinator
 from .routing import RoutingResult, evaluate_routing
-from .util import haversine_m, line_color, short_stop_name
+from .util import line_color, short_stop_name
 
 
 async def async_setup_entry(
@@ -88,8 +82,7 @@ async def async_setup_entry(
 
     if config.get(CONF_ROUTING_ENABLED, True):
         async_add_entities([HafasRoutingSensor(coordinator, entry, config)])
-    if config.get(CONF_DEVICE_TRACKER) or config.get(CONF_GEOCODED_SENSOR):
-        async_add_entities([HafasNearestStopSensor(coordinator, entry, config)])
+    async_add_entities([HafasSelectedStopSensor(coordinator, entry, config)])
 
 
 def _pause_label(reason: str | None) -> str | None:
@@ -441,11 +434,10 @@ class HafasRoutingSensor(_HafasBaseSensor):
         }
 
 
-class HafasNearestStopSensor(_HafasBaseSensor):
-    """Show departures of the configured stop nearest to the phone GPS."""
+class HafasSelectedStopSensor(_HafasBaseSensor):
+    """Show departures of the stop selected via select.hafas_haltestelle."""
 
-    _attr_name = "Nächste Haltestelle"
-    _attr_icon = "mdi:map-marker-radius"
+    _attr_icon = "mdi:bus-stop"
 
     def __init__(
         self,
@@ -464,241 +456,122 @@ class HafasNearestStopSensor(_HafasBaseSensor):
         return "hafas_naechste_haltestelle"
 
     @property
-    def _tracker_state(self):
-        """Return the configured tracker state, if present."""
-        tracker = self._config.get(CONF_DEVICE_TRACKER)
-        return self.hass.states.get(str(tracker)) if tracker else None
+    def name(self) -> str:
+        """Return the selected stop name as the entity name."""
+        stop = self._selected_stop
+        if stop is None:
+            return "Nächste Haltestelle"
+        return short_stop_name(
+            str(stop.get(CONF_STOP_NAME) or ""),
+            str(stop.get(CONF_CITY) or ""),
+        )
 
     @property
-    def _geocoded_state(self):
-        """Return the configured geocoded-location sensor state."""
-        sensor = self._config.get(CONF_GEOCODED_SENSOR)
-        return self.hass.states.get(str(sensor)) if sensor else None
-
-    def _parse_location(self, value: Any) -> tuple[float, float] | None:
-        """Parse the Location attribute used by companion geocoded sensors."""
-        if value is None:
-            return None
-        parsed: Any = value
-        if isinstance(value, str):
-            text = value.strip()
-            try:
-                parsed = json.loads(text)
-            except (TypeError, ValueError):
-                parsed = text.strip("[]() ")
-                parts = [part.strip() for part in parsed.split(",")]
-                if len(parts) < 2:
-                    return None
-                parsed = parts[:2]
-        if isinstance(parsed, dict):
-            latitude = parsed.get("latitude") or parsed.get("lat")
-            longitude = parsed.get("longitude") or parsed.get("lon")
-        elif isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
-            latitude, longitude = parsed[0], parsed[1]
-        else:
-            return None
-        try:
-            lat = float(latitude)
-            lon = float(longitude)
-        except (TypeError, ValueError):
-            return None
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            return None
-        if lat == 0 and lon == 0:
-            return None
-        return lat, lon
-
-    def _coordinates_from_state(self, state) -> tuple[float, float] | None:
-        """Extract valid coordinates from a state object."""
-        if state is None:
-            return None
-        try:
-            latitude = float(state.attributes["latitude"])
-            longitude = float(state.attributes["longitude"])
-        except (KeyError, TypeError, ValueError):
-            coordinates = self._parse_location(
-                state.attributes.get("Location") or state.attributes.get("location")
-            )
-            return coordinates
-        if latitude == 0 and longitude == 0:
-            return None
-        return latitude, longitude
-
-    def _zone_for_state(self, state) -> Any | None:
-        """Return a zone matching a tracker state name, if possible."""
-        if state is None:
-            return None
-        key = str(state.state or "").strip().casefold()
-        if not key or key in {"not_home", "unknown", "unavailable"}:
-            return None
-        for zone in self.hass.states.async_all("zone"):
-            zone_key = zone.entity_id.split(".", 1)[-1].casefold()
-            zone_name = str(
-                zone.attributes.get("friendly_name") or zone.name or ""
-            ).casefold()
-            if key in {zone_key, zone_name}:
-                return zone
-        return None
+    def _selected_stop(self) -> dict[str, Any] | None:
+        """Return the currently selected stop."""
+        return self.coordinator.selected_stop()
 
     @property
-    def _position(self) -> tuple[float, float, str] | None:
-        """Return coordinates and their source (tracker or zone centre)."""
-        tracker_state = self._tracker_state
-        coordinates = self._coordinates_from_state(tracker_state)
-        if coordinates is not None:
-            return coordinates[0], coordinates[1], "tracker"
-
-        geocoded_coordinates = self._coordinates_from_state(self._geocoded_state)
-        if geocoded_coordinates is not None:
-            return geocoded_coordinates[0], geocoded_coordinates[1], "geocoded"
-
-        zone = self._zone_for_state(tracker_state)
-        zone_coordinates = self._coordinates_from_state(zone)
-        if zone_coordinates is not None:
-            return (
-                zone_coordinates[0],
-                zone_coordinates[1],
-                f"zone:{zone.entity_id}",
-            )
-        return None
-
-    @property
-    def _tracker_position(self) -> tuple[float, float] | None:
-        """Return latitude/longitude from the configured tracker/person."""
-        position = self._position
-        return (position[0], position[1]) if position else None
-
-    @property
-    def _nearest_stop(self) -> tuple[dict[str, Any], float] | None:
-        """Return the nearest configured stop and distance in meters."""
-        position = self._tracker_position
-        if position is None:
+    def _stop_data(self):
+        """Return the selected stop's current board."""
+        stop = self._selected_stop
+        if stop is None:
             return None
-        latitude, longitude = position
-        nearest: tuple[dict[str, Any], float] | None = None
-        for stop in self._config.get(CONF_STOPS, []):
-            stop_lat = stop.get(CONF_STOP_LAT)
-            stop_lon = stop.get(CONF_STOP_LON)
-            if stop_lat is None or stop_lon is None:
-                continue
-            distance = haversine_m(
-                latitude,
-                longitude,
-                float(stop_lat),
-                float(stop_lon),
-            )
-            if nearest is None or distance < nearest[1]:
-                nearest = (stop, distance)
-        return nearest
+        return self.coordinator.stop_data(str(stop.get(CONF_STOP_ID)))
 
     @property
-    def _nearest_payloads(self) -> tuple[list[dict[str, Any]], str | None]:
-        """Return reachable departures and the stop name for the nearest stop."""
-        nearest = self._nearest_stop
-        if nearest is None:
-            return [], None
-        stop, _distance = nearest
-        data = self.coordinator.stop_data(str(stop.get(CONF_STOP_ID)))
-        if data is None:
-            return [], str(stop.get(CONF_STOP_NAME) or "")
-        walking = max(0, int(stop.get(CONF_WALKING_MINUTES) or 0))
+    def _walking_minutes(self) -> int:
+        """Return the selected stop's walking time."""
+        stop = self._selected_stop
+        if stop is None:
+            return 0
+        return max(0, int(stop.get(CONF_WALKING_MINUTES) or 0))
+
+    @property
+    def _payloads(self) -> list[dict[str, Any]]:
+        """Return all non-cancelled departures at the selected stop."""
+        data = self._stop_data
+        stop = self._selected_stop
+        if data is None or stop is None:
+            return []
         payloads = [
             _departure_payload(
                 departure,
                 data.fetched_at,
-                walking,
+                self._walking_minutes,
                 stop_name=str(stop.get(CONF_STOP_NAME) or ""),
             )
             for departure in data.departures
         ]
-        reachable = [payload for payload in payloads if not payload["cancelled"]]
-        return reachable, str(stop.get(CONF_STOP_NAME) or "")
+        payloads.sort(key=lambda payload: payload["minutes_until_departure"])
+        return [payload for payload in payloads if not payload["cancelled"]]
+
+    @property
+    def available(self) -> bool:
+        """Return true while a stop is selected and has data."""
+        return super().available and self._selected_stop is not None
 
     @property
     def native_value(self) -> str | None:
-        """Return next departure at the nearest configured stop."""
+        """Return the next departure at the selected stop."""
         if self._pause_label is not None:
+            self._last_next_trip = None
+            self._last_next_minutes = None
             return self._pause_label
-        if self._tracker_position is None:
-            tracker_state = self._tracker_state
-            geocoded_state = self._geocoded_state
-            tracker_configured = self._config.get(CONF_DEVICE_TRACKER)
-            geocoded_configured = self._config.get(CONF_GEOCODED_SENSOR)
-            if tracker_configured and tracker_state is None and not geocoded_configured:
-                return "Tracker nicht gefunden"
-            if (
-                geocoded_configured
-                and geocoded_state is None
-                and not tracker_configured
-            ):
-                return "Geocoded-Sensor nicht gefunden"
-            if (
-                tracker_configured
-                and tracker_state is None
-                and geocoded_configured
-                and geocoded_state is None
-            ):
-                return "GPS-Quelle nicht gefunden"
-            return "Keine GPS-Koordinaten"
-        nearest = self._nearest_stop
-        if nearest is None:
-            return "Keine Koordinaten"
-        stop, _distance = nearest
-        short = short_stop_name(
-            str(stop.get(CONF_STOP_NAME) or ""),
-            str(stop.get(CONF_CITY) or ""),
+        if self._selected_stop is None:
+            return "Keine Haltestelle"
+        payloads = self._payloads
+        if not payloads:
+            if self._stop_data is None:
+                return "Keine Daten"
+            return "Keine Abfahrt"
+
+        first = payloads[0]
+        trip_key = str(
+            first.get("trip_id") or f"{first['line']}|{first['departure_time']}"
         )
-        payloads, _ = self._nearest_payloads
-        if payloads:
-            first = payloads[0]
-            return f"{short}: {first['line_destination']} · {first['time_text']}"
-        if self.coordinator.stop_data(str(stop.get(CONF_STOP_ID))) is None:
-            return f"{short}: Keine Daten"
-        return f"{short}: Keine erreichbare Abfahrt"
+        actual_minutes = int(first["minutes_until_departure"])
+        display_minutes = actual_minutes
+        if trip_key == self._last_next_trip and self._last_next_minutes is not None:
+            display_minutes = min(actual_minutes, self._last_next_minutes)
+        self._last_next_trip = trip_key
+        self._last_next_minutes = display_minutes
+        if display_minutes <= 0:
+            time_text = "Sofort"
+        elif display_minutes < DISPLAY_MINUTES_THRESHOLD:
+            time_text = f"in {display_minutes} min"
+        else:
+            time_text = first["time_text"]
+        return f"{first['line_destination']} · {time_text}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Expose the nearest stop, distance and full departure data."""
-        nearest = self._nearest_stop
-        stop = nearest[0] if nearest else None
-        distance = round(nearest[1]) if nearest else None
-        payloads, _ = self._nearest_payloads
+        """Expose the selected stop and its departure data."""
+        stop = self._selected_stop
+        payloads = self._payloads
         next_departure = payloads[0] if payloads else None
+        data = self._stop_data
         return {
             ATTR_STOP: stop.get(CONF_STOP_NAME) if stop else None,
             ATTR_STOP_ID: stop.get(CONF_STOP_ID) if stop else None,
-            ATTR_DISTANCE_M: distance,
-            ATTR_WALKING_MINUTES: (
-                int(stop.get(CONF_WALKING_MINUTES) or 0) if stop else None
+            ATTR_CITY: stop.get("city") if stop else None,
+            ATTR_LINES: list(stop.get(CONF_LINES) or []) if stop else [],
+            ATTR_LINE_TARGETS: (
+                dict(stop.get(CONF_LINE_TARGETS) or {}) if stop else {}
             ),
-            "device_tracker": self._config.get(CONF_DEVICE_TRACKER),
-            "geocoded_sensor": self._config.get(CONF_GEOCODED_SENSOR),
-            "tracker_state": (
-                self._tracker_state.state if self._tracker_state else None
-            ),
-            "geocoded_state": (
-                self._geocoded_state.state if self._geocoded_state else None
-            ),
-            "position_source": (self._position[2] if self._position else None),
-            "zone": (
-                self._zone_for_state(self._tracker_state).entity_id
-                if self._zone_for_state(self._tracker_state)
-                else None
-            ),
+            ATTR_LINE_COLORS: {
+                payload["line"]: payload["line_color"] for payload in payloads
+            },
+            ATTR_WALKING_MINUTES: self._walking_minutes,
             ATTR_DEPARTURES: payloads,
             ATTR_DEPARTURE_COUNT: len(payloads),
             ATTR_NEXT_DEPARTURE: next_departure,
             ATTR_MINUTES_UNTIL_DEPARTURE: (
                 next_departure["minutes_until_departure"] if next_departure else None
             ),
-            ATTR_LINE_COLORS: {
-                payload["line"]: payload["line_color"] for payload in payloads
-            },
-            ATTR_LAST_UPDATE: (
-                self.coordinator.data.get("fetched_at").isoformat()
-                if self.coordinator.data and self.coordinator.data.get("fetched_at")
-                else None
-            ),
+            "selected_by": "select.hafas_haltestelle",
+            "stop_selector": self.coordinator.selected_stop_id,
+            ATTR_LAST_UPDATE: data.fetched_at.isoformat() if data else None,
             ATTR_PAUSED_REASON: self._pause_reason,
             ATTR_ACTIVE_HOURS: ACTIVE_HOURS_TEXT,
             "paused": self._pause_reason is not None,

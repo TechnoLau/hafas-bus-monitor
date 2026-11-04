@@ -21,8 +21,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import HafasClient, HafasError, HafasStop
 from .const import (
     CONF_CITY,
-    CONF_DEVICE_TRACKER,
-    CONF_GEOCODED_SENSOR,
     CONF_HOLIDAY_ENTITY,
     CONF_LINE_TARGETS,
     CONF_LINES,
@@ -31,9 +29,7 @@ from .const import (
     CONF_STOP_CITY,
     CONF_STOP_ID,
     CONF_STOP_INDEX,
-    CONF_STOP_LAT,
     CONF_STOP_LID,
-    CONF_STOP_LON,
     CONF_STOP_NAME,
     CONF_STOP_QUERY,
     CONF_TARGETS,
@@ -137,14 +133,6 @@ def _global_schema(settings: dict[str, Any]) -> vol.Schema:
             ): OptionalEntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
             ),
-            _optional_entity_key(
-                CONF_DEVICE_TRACKER, settings.get(CONF_DEVICE_TRACKER)
-            ): OptionalEntitySelector(
-                selector.EntitySelectorConfig(domain=["device_tracker", "person"])
-            ),
-            _optional_entity_key(
-                CONF_GEOCODED_SENSOR, settings.get(CONF_GEOCODED_SENSOR)
-            ): OptionalEntitySelector(selector.EntitySelectorConfig(domain=["sensor"])),
         }
     )
 
@@ -170,12 +158,6 @@ def _parse_global(
         ),
         CONF_HOLIDAY_ENTITY: (
             str(user_input.get(CONF_HOLIDAY_ENTITY) or "").strip() or None
-        ),
-        CONF_DEVICE_TRACKER: (
-            str(user_input.get(CONF_DEVICE_TRACKER) or "").strip() or None
-        ),
-        CONF_GEOCODED_SENSOR: (
-            str(user_input.get(CONF_GEOCODED_SENSOR) or "").strip() or None
         ),
     }
 
@@ -529,8 +511,6 @@ class HafasStopSubentryFlow(ConfigSubentryFlow):
                     CONF_STOP_ID: self._candidate.stop_id,
                     CONF_STOP_LID: self._candidate.lid,
                     CONF_STOP_NAME: self._candidate.name,
-                    CONF_STOP_LAT: self._candidate.latitude,
-                    CONF_STOP_LON: self._candidate.longitude,
                     CONF_LINES: self._lines,
                     CONF_LINE_TARGETS: dict(self._line_targets),
                     CONF_WALKING_MINUTES: _int_value(
