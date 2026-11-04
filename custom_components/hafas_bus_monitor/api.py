@@ -428,7 +428,7 @@ def parse_station_board_response(
         if planned is None or actual is None:
             continue
 
-        if actual < reference - timedelta(seconds=90):
+        if actual < reference:
             continue
         if actual > scan_until + timedelta(seconds=90):
             continue
