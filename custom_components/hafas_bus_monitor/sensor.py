@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
@@ -455,6 +456,25 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
         """Return the historical hafas_naechste_haltestelle entity id."""
         return "hafas_naechste_haltestelle"
 
+    async def async_added_to_hass(self) -> None:
+        """Subscribe explicitly to coordinator updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass,
+                self._async_periodic_write,
+                timedelta(seconds=30),
+            )
+        )
+
+    @callback
+    def _async_periodic_write(self, _now) -> None:
+        """Write the state so the widget refreshes even if data is unchanged."""
+        self.async_write_ha_state()
+
     @property
     def name(self) -> str:
         """Return a searchable name with the selected stop."""
@@ -552,6 +572,9 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
         payloads = self._payloads
         next_departure = payloads[0] if payloads else None
         data = self._stop_data
+        fetched_at = data.fetched_at if data else None
+        if fetched_at is None and self.coordinator.data:
+            fetched_at = self.coordinator.data.get("fetched_at")
         return {
             ATTR_STOP: stop.get(CONF_STOP_NAME) if stop else None,
             "stop_short": (
@@ -580,7 +603,7 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
             ),
             "selected_by": "select.hafas_haltestelle",
             "stop_selector": self.coordinator.selected_stop_id,
-            ATTR_LAST_UPDATE: data.fetched_at.isoformat() if data else None,
+            ATTR_LAST_UPDATE: fetched_at.isoformat() if fetched_at else None,
             ATTR_PAUSED_REASON: self._pause_reason,
             ATTR_ACTIVE_HOURS: ACTIVE_HOURS_TEXT,
             "paused": self._pause_reason is not None,
