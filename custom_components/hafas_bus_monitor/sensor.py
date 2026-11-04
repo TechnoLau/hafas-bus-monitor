@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
@@ -454,6 +455,22 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
     def suggested_object_id(self) -> str:
         """Return the historical hafas_naechste_haltestelle entity id."""
         return "hafas_naechste_haltestelle"
+
+    async def async_added_to_hass(self) -> None:
+        """Refresh the entity state every 30 seconds."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass,
+                self._async_periodic_update,
+                timedelta(seconds=30),
+            )
+        )
+
+    @callback
+    def _async_periodic_update(self, _now) -> None:
+        """Write the current state so widgets refresh."""
+        self.async_write_ha_state()
 
     @property
     def name(self) -> str:

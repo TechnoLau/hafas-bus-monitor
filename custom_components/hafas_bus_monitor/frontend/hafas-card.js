@@ -46,6 +46,19 @@ class HafasDepartureCard extends HTMLElement {
       this._config.entity;
   }
 
+  connectedCallback() {
+    this._timer = window.setInterval(() => {
+      if (this._hass) this.hass = this._hass;
+    }, 30000);
+  }
+
+  disconnectedCallback() {
+    if (this._timer) {
+      window.clearInterval(this._timer);
+      this._timer = undefined;
+    }
+  }
+
   getCardSize() {
     return 2;
   }

@@ -23,7 +23,7 @@ Die Integration beantwortet zwei Fragen:
 - **Sehr detaillierte Attribute** inklusive Echtzeit, Verspätung, Steig, Fußweg, Losgehzeit und allen HAFAS-Rohfeldern, die die Integration parst
 - **Sensor „Schnellste Verbindung“** mit Fußweg-Vergleich
 - **Select `select.hafas_haltestelle`** – schaltet die Haltestelle für den Sensor „Nächste Haltestelle“ um
-- **Aktualisierung alle 30 Sekunden**, ausschließlich **06:00–22:00**
+- **Aktualisierung alle 30 Sekunden** für Entitäten und Karte, ausschließlich **06:00–22:00**
 - **Ferienmodus-Switch** `switch.hafas_ferienmodus` und optionaler Ferien-Sensor; bei aktiv pausiert die Abfrage (`Ferien`)
 - **Hinzufügen-Button** für beliebig viele Kacheln; jede Kachel ist ein eigener Config-Subentry und editierbar
 - **Service** `hafas_bus_monitor.refresh`
@@ -698,7 +698,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.4.4
+git tag v3.4.5
 git push origin v3.0.1
 ```
 
