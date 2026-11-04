@@ -40,6 +40,7 @@ class HafasDepartureCard extends HTMLElement {
     }
     this._departure.textContent = stateObj.state;
     this._stop.textContent =
+      stateObj.attributes.stop_short ||
       stateObj.attributes.stop ||
       stateObj.attributes.friendly_name ||
       this._config.entity;
