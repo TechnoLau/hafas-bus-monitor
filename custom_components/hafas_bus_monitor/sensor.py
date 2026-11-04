@@ -437,6 +437,7 @@ class HafasRoutingSensor(_HafasBaseSensor):
 class HafasSelectedStopSensor(_HafasBaseSensor):
     """Show departures of the stop selected via select.hafas_haltestelle."""
 
+    _attr_name = "Nächste Haltestelle"
     _attr_icon = "mdi:bus-stop"
 
     def __init__(
@@ -454,17 +455,6 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
     def suggested_object_id(self) -> str:
         """Return the historical hafas_naechste_haltestelle entity id."""
         return "hafas_naechste_haltestelle"
-
-    @property
-    def name(self) -> str:
-        """Return the selected stop name as the entity name."""
-        stop = self._selected_stop
-        if stop is None:
-            return "Nächste Haltestelle"
-        return short_stop_name(
-            str(stop.get(CONF_STOP_NAME) or ""),
-            str(stop.get(CONF_CITY) or ""),
-        )
 
     @property
     def _selected_stop(self) -> dict[str, Any] | None:

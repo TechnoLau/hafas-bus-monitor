@@ -151,11 +151,12 @@ select.hafas_haltestelle
   data:
     option: "Kiel Hospitalstraße"
   ```
-- Der Sensor `sensor.hafas_naechste_haltestelle` heißt danach wie die ausgewählte Haltestelle und zeigt deren Abfahrten:
+- Der Sensor `sensor.hafas_naechste_haltestelle` heißt sichtbar **Nächste Haltestelle** und zeigt die Abfahrten der ausgewählten Haltestelle:
   ```text
-  Name:  Hospitalstraße
+  Name:  Nächste Haltestelle
   State: 61 | Mettenhof · in 4 min
   ```
+  Die ausgewählte Haltestelle steht im Attribut `stop`, im Select-State und klein unter der Abfahrt in der Karte.
 - Die Auswahl wird über einen Neustart hinweg gespeichert.
 - Die Auswahl lässt sich komplett per Automation ändern, z. B. morgens Schule, mittags nach Hause.
 - Der Haltestellenname steht zusätzlich im Attribut `stop` und wird von der Karte klein unter der Abfahrt angezeigt.
@@ -697,7 +698,7 @@ git add .
 git commit -m "Beschreibung der Änderung"
 git push
 
-git tag v3.4.1
+git tag v3.4.2
 git push origin v3.0.1
 ```
 
