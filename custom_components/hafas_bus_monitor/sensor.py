@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -467,9 +467,9 @@ class HafasSelectedStopSensor(_HafasBaseSensor):
             )
         )
 
-    @callback
-    def _async_periodic_update(self, _now) -> None:
-        """Write the current state so widgets refresh."""
+    async def _async_periodic_update(self, _now) -> None:
+        """Force a data refresh and write the state so widgets refresh."""
+        await self.coordinator.async_request_refresh()
         self.async_write_ha_state()
 
     @property
